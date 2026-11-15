@@ -39,8 +39,6 @@ import { computeLabels } from '../src/lib/labels.ts';
 
 const D1_DATABASE = 'jimotonyusatsu';
 const SITE_URL = 'https://jimotonyusatsu.jp';
-// workers.dev を本番ドメインへ転送するまでは、こちらのキャッシュも消す（キャッシュはホストごとに分かれている場合があるため）
-const STAGING_URL = 'https://jimotonyusatsu.ishikawa-onore.workers.dev';
 const MAX_STATEMENT_BYTES = 100_000; // D1 の1ステートメント上限
 const BATCH_STATEMENTS = 3000;
 // サイトに出してよい取得元だけを同期する。茨城県PPI（ibaraki_ppi_*）は利用規約の確認が済むまで入れない
@@ -369,7 +367,7 @@ async function purgeEdgeCache() {
     console.warn('[sync] .dev.vars に CACHE_PURGE_TOKEN が無いので、キャッシュは消していません（最大1時間、古い表示が残ります）');
     return;
   }
-  for (const base of [SITE_URL, STAGING_URL]) {
+  for (const base of [SITE_URL]) {
     try {
       const res = await fetch(`${base}/api/cache-purge`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       const body = (await res.text()).slice(0, 200);

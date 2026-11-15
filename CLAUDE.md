@@ -10,7 +10,7 @@
 - **茨城県 PPI（`source = 'ibaraki_ppi_koji' / 'ibaraki_ppi_buppin'`）は D1 に同期しない・表示しない。**
   運営者への利用確認が済むまでは手元の SQLite に置くだけ（docs/SOURCES_IBARAKI.md）
 - **外部へのリクエストは常に1本ずつ。** 官公需APIは間隔1.5秒以上、PPI は2秒以上、公告PDFなどの取得も1.5秒以上あける。大量取得の前にユーザーに確認する
-- ステージング（workers.dev）は全ページ noindex のまま。外すのは独自ドメインへ移すとき
+- 本番は https://jimotonyusatsu.jp（workers.dev は middleware で本番へ 301 転送）。公開までは全ページ noindex。外すときは `src/lib/site.ts` の `STAGING_NOINDEX` を false にするだけ
 - 自分で取得した公告PDF・添付のテキスト（`data/docs/`）はサイトに載せない。表示するのは事実の項目、官公需APIの公告文（ProjectDescription）、公式へのリンク、AI の抽出・要約だけ
 - AI 抽出は `data/ai/INSTRUCTIONS.md` の基準に従う（入札方法は3択。障害時だけ紙を認めるものは「電子のみ」。件名の補正は API の件名が明らかに壊れている場合だけ）
 - お気に入りはログインなし・localStorage のみ。サーバーに個人の状態を持たせない

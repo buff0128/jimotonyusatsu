@@ -5,7 +5,10 @@
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  // workers.dev は残す（アクセスは src/middleware.ts が本番へ 301 転送する）
   "workers_dev": true,
+  // 本番ドメイン（Workers の Custom Domain。DNS レコードと証明書は Cloudflare が作る）
+  "routes": [{ "pattern": "jimotonyusatsu.jp", "custom_domain": true }],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist"

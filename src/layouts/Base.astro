@@ -45,6 +45,12 @@ const {
 const fullTitle = title === SITE_NAME ? SITE_NAME : `${title}｜${SITE_NAME}`;
 const site = Astro.site ?? Astro.url;
 const pageUrl = new URL(Astro.url.pathname, site).href;
+// canonical：指定が無ければ、インデックス対象のページは自分自身の URL（クエリは ?page= だけ残す）。noindex のページには付けない
+// 事前生成のページはビルド時の pathname が /about.html になる（build.format: 'file'）ので、.html を取る
+const pageNumber = Number(Astro.url.searchParams.get('page'));
+const pagePath = Astro.url.pathname.replace(/\.html$/, '').replace(/\/index$/, '') || '/';
+const canonicalPath =
+  canonical ?? (noindex ? undefined : `${pagePath}${Number.isInteger(pageNumber) && pageNumber > 1 ? `?page=${pageNumber}` : ''}`);
 const ogImage = new URL('/og-image.png', site).href;
 const searchPlaceholder = header === 'local' && searchScope ? `${searchScope.name}の仕事を検索` : '件名・発注機関・業種で検索';
 const NAV = [
@@ -63,7 +69,7 @@ const FOOTER_LINKS = [{ href: '/guide', label: '入札の始め方' }, ...FIXED_
     {(STAGING_NOINDEX || noindex) && <meta name="robots" content="noindex, nofollow" />}
     <title>{fullTitle}</title>
     {description && <meta name="description" content={description} />}
-    {canonical && <link rel="canonical" href={new URL(canonical, site).href} />}
+    {canonicalPath && <link rel="canonical" href={new URL(canonicalPath, site).href} />}
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />

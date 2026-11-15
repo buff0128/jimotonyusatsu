@@ -1,3 +1,2 @@
-# ステージング：静的ファイルも検索エンジンに載せない（本番公開時に外す）
-/*
-  X-Robots-Tag: noindex, nofollow
+# 静的ファイルのヘッダー。公開前の noindex は src/lib/site.ts の STAGING_NOINDEX だけで切り替える
+# （事前生成ページは <meta name="robots"> で止まる。ここに X-Robots-Tag は書かない）
