@@ -8,11 +8,24 @@ const ORDER = [
   '/guide/bidding-methods',
   '/guide/small-contracts',
   '/guide/e-bidding',
-  '/guide/goods-services',
   '/guide/construction',
+  '/guide/goods-services',
   '/guide/award-results',
   '/guide/checklist',
 ];
+
+/** 記事一覧で STEP 番号を付ける「基本の流れ」の記事（ORDER の先頭から順に読む前提のもの）。それ以外は目的別の記事として、TAGS の見出しを付けて並べる */
+export const STEP_PATHS: readonly string[] = ['/guide/getting-started', '/guide/qualification', '/guide/reading-notices', '/guide/bidding-methods'];
+
+/** 目的別の記事に付ける小見出し（STEP の代わりに出す） */
+export const GUIDE_TAGS: Record<string, string> = {
+  '/guide/small-contracts': '最初の仕事を探す',
+  '/guide/e-bidding': '入札の準備',
+  '/guide/construction': '工事の会社向け',
+  '/guide/goods-services': '物品・サービスの会社向け',
+  '/guide/award-results': '金額を決める',
+  '/guide/checklist': '提出の前に',
+};
 
 /** トップの「入札が初めての方へ」に出す短い説明 */
 const SUMMARIES: Record<string, string> = {
