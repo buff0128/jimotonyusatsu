@@ -1,0 +1,39 @@
+---
+// 「カレンダーに追加」（終日の予定）。Google カレンダーへのリンクと、ブラウザで組み立てる .ics（src/scripts/calendar.ts）
+// 開閉は <details>。印刷では出さない
+import Icon from './Icon.astro';
+import { googleCalendarUrl, type CalendarEvent } from '../lib/calendar';
+
+type Props = { event: CalendarEvent; block?: boolean };
+
+const { event, block = false } = Astro.props;
+const google = googleCalendarUrl(event);
+---
+
+{
+  google && (
+    <details class:list={['cal', 'no-print', { 'cal--block': block }]}>
+      <summary class="cal-summary">
+        <Icon name="calendar" size={16} />
+        カレンダーに追加
+      </summary>
+      <div class="cal-menu">
+        <a class="cal-item" href={google} target="_blank" rel="noopener nofollow">Googleカレンダー</a>
+        <button type="button" class="cal-item" data-ics={JSON.stringify(event)}>
+          iPhone・Outlookなど（.ics）
+        </button>
+      </div>
+    </details>
+  )
+}
+
+<style>
+  /* メニューは重ねずに下へ開く（右端の列で画面からはみ出さないように） */
+  .cal-summary { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 10px; margin-left: -10px; font-size: 13px; font-weight: 700; color: var(--link); cursor: pointer; list-style: none; border-radius: var(--radius-control); }
+  .cal-summary::-webkit-details-marker { display: none; }
+  .cal-summary:hover { color: var(--link-hover); background: var(--surface-soft); }
+  .cal--block .cal-summary { display: flex; justify-content: center; margin: 0; border: 1px solid var(--line-strong); background: var(--surface); font-size: 14px; }
+  .cal-menu { margin-top: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-control); box-shadow: var(--shadow-panel); display: flex; flex-direction: column; }
+  .cal-item { display: flex; align-items: center; min-height: var(--tap); padding: 0 12px; border: 0; border-radius: var(--radius-nav); background: transparent; color: var(--ink); font-size: 14px; text-align: left; text-decoration: none; cursor: pointer; line-height: 1.4; overflow-wrap: anywhere; }
+  .cal-item:hover { color: var(--ink); background: var(--surface-soft); }
+</style>

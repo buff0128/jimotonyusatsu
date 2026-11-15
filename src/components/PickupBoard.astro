@@ -1,0 +1,84 @@
+---
+// 「今週のねらい目」：参加しやすさのラベルが付いた締切前の仕事を、掲示板の貼り紙として見せる（docs/design/DESIGN.md「掲示板の貼り紙」）
+// 都道府県・市区町村ページで使う。0件なら何も出さない
+import GyoshuIcon from './GyoshuIcon.astro';
+import LabelChips from './LabelChips.astro';
+import type { CaseSummary } from '../lib/db';
+import { categoryLabel } from '../lib/categories';
+import { leftText, nextDeadline, shortDate, type DeadlineCandidate } from '../lib/deadlines';
+import { gyoshuLabel } from '../lib/gyoshu';
+
+type Props = { cases: CaseSummary[]; title: string; lead: string; moreHref?: string };
+
+const { cases, title, lead, moreHref } = Astro.props;
+const LABEL_LIMIT = 2;
+const now = Date.now();
+
+function noteMeta(c: CaseSummary) {
+  const tag = c.tags?.split(',')[0];
+  const tender = c.tender_submission_deadline ?? c.ai_tender_deadline;
+  const candidates: DeadlineCandidate[] = [
+    ...(c.ai_application_deadline ? [['参加申請', c.ai_application_deadline] as DeadlineCandidate] : []),
+    ...(tender ? [['入札書の提出', tender] as DeadlineCandidate] : []),
+  ];
+  return {
+    tag,
+    kind: [c.category ? categoryLabel(c.category) : null, tag ? gyoshuLabel(tag) : null].filter(Boolean).join('・'),
+    next: nextDeadline(candidates, now),
+    labels: (c.labels?.split(',') ?? []).slice(0, LABEL_LIMIT),
+  };
+}
+---
+
+{
+  cases.length > 0 && (
+    <section class="board-face pickup" aria-label={title}>
+      <div class="pickup-head">
+        <h2 class="pickup-title">{title}</h2>
+        {moreHref && <a class="more-link" href={moreHref}>締切が近い順に見る　›</a>}
+      </div>
+      <p class="pickup-lead">{lead}</p>
+      <ul class="board-notes pickup-notes">
+        {cases.map((c, i) => {
+          const { tag, kind, next, labels } = noteMeta(c);
+          return (
+            <li>
+              <a class="board-note" href={`/cases/${c.id}`}>
+                <span class={i % 2 === 0 ? 'board-pin' : 'board-tape'} aria-hidden="true" />
+                <span class="note-meta">
+                  {tag && <GyoshuIcon slug={tag} size={15} />}
+                  {[c.city_name ?? c.pref_name, kind].filter(Boolean).join('・')}
+                </span>
+                <span class="note-title">{c.ai_project_name ?? c.project_name}</span>
+                {labels.length > 0 && <LabelChips slugs={labels} />}
+                {next.state === 'open' && (
+                  <span class="note-deadline">
+                    {next.label} {shortDate(next.value)}　<span data-countdown={next.value}>{leftText(next.days)}</span>
+                  </span>
+                )}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  .pickup-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  .pickup-title { font-size: 22px; margin: 0; }
+  .pickup-lead { margin: 4px 0 22px; font-size: 14px; color: var(--label-text); }
+  .pickup-notes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 22px 18px; }
+  .pickup-notes li { display: flex; }
+  .pickup-notes .board-note { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .note-meta { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .note-meta :global(.gyoshu-icon) { flex: none; color: var(--kaki-text); }
+  .note-title { font-weight: 700; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+  .board-note:hover .note-title { text-decoration: underline; }
+  .note-deadline { margin-top: auto; padding-top: 4px; font-size: 12px; font-weight: 700; color: var(--kaki-text); }
+  @media (max-width: 600px) {
+    .pickup-title { font-size: 20px; }
+    .pickup-notes { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  }
+</style>

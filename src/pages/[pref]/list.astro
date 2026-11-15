@@ -1,0 +1,10 @@
+---
+// 都道府県の仕事の一覧（/ibaraki/list）
+import PrefCaseList from '../../components/PrefCaseList.astro';
+import { getPrefBySlug } from '../../lib/db';
+
+const pref = await getPrefBySlug(Astro.params.pref ?? '');
+if (!pref) return Astro.rewrite('/404');
+---
+
+<PrefCaseList pref={pref} />

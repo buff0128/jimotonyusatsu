@@ -1,0 +1,224 @@
+---
+// トップ（docs/design/LocalHome.dc.html）。地元を選ぶと、次回からその地域のページへ移動する（<head> のスクリプト）
+import Icon from '../components/Icon.astro';
+import RecentViewed from '../components/RecentViewed.astro';
+import Base from '../layouts/Base.astro';
+import { categoryLabel } from '../lib/categories';
+import { getAreaCounts, listCases, listPrefsWithCounts, type CaseSummary } from '../lib/db';
+import { leftText, nextDeadline, type DeadlineCandidate } from '../lib/deadlines';
+import { todayInJst } from '../lib/format';
+import { listGuides } from '../lib/guides';
+import { gyoshuLabel } from '../lib/gyoshu';
+import { groupByRegion, shortPrefName } from '../lib/regions';
+
+const BOARD_SIZE = 3;
+const [prefs, national, pickup, dueSoon, newest, guides] = await Promise.all([
+  listPrefsWithCounts(),
+  getAreaCounts(''),
+  // 今週のねらい目：参加しやすさのラベルが付いた締切前の仕事（期限のインデックスから読む）
+  listCases({ deadlineFrom: todayInJst(), labeled: true }, { limit: BOARD_SIZE, sort: 'deadline', withTotal: false }),
+  listCases({ deadlineFrom: todayInJst() }, { limit: BOARD_SIZE, sort: 'deadline', withTotal: false }),
+  listCases({}, { limit: BOARD_SIZE, withTotal: false }),
+  listGuides(),
+]);
+// 掲示板：今週のねらい目。足りなければ締切が近い仕事、さらに新着で埋める
+const boardCases = [...pickup.cases, ...dueSoon.cases, ...newest.cases]
+  .filter((c, i, all) => all.findIndex((d) => d.id === c.id) === i)
+  .slice(0, BOARD_SIZE);
+const boardIsPickup = pickup.cases.length === BOARD_SIZE;
+const regions = groupByRegion(prefs);
+
+function boardMeta(c: CaseSummary) {
+  const tag = c.tags?.split(',')[0];
+  const kind = [c.category ? categoryLabel(c.category) : null, tag ? gyoshuLabel(tag) : null].filter(Boolean).join('・');
+  const tender = c.tender_submission_deadline ?? c.ai_tender_deadline;
+  const candidates: DeadlineCandidate[] = [
+    ...(c.ai_application_deadline ? [['参加申請', c.ai_application_deadline] as DeadlineCandidate] : []),
+    ...(tender ? [['入札書の提出', tender] as DeadlineCandidate] : []),
+  ];
+  const next = nextDeadline(candidates, Date.now());
+  return { kind, next, deadline: next.state === 'open' ? next.value : null };
+}
+---
+
+<Base
+  title="じもと入札"
+  header="home"
+  bare
+  canonical="/"
+  description="国・県・市町村が地元で出した入札の仕事を、市区町村ごとにまとめています。登録なし・完全無料。地元を選ぶと、次回から自動でその町の入札が開きます。"
+>
+  <script is:inline slot="head">
+    // 地元が保存されていれば、その地域のページへ移動する（src/scripts/local-area.ts と同じキー・形式）。
+    // ロゴやパンくずなどサイト内から戻ってきたとき・?home=1（地元の「変更」）のときは移動しない
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).has('home')) return;
+        if (document.referrer && new URL(document.referrer).origin === location.origin) return;
+        var v = JSON.parse(localStorage.getItem('jimoto:local') || 'null');
+        var slug = /^[a-z0-9-]+$/;
+        if (!v || typeof v.prefSlug !== 'string' || !slug.test(v.prefSlug)) return;
+        var city = typeof v.citySlug === 'string' && slug.test(v.citySlug) ? '/' + v.citySlug : '';
+        location.replace('/' + v.prefSlug + city);
+      } catch (e) {}
+    })();
+  </script>
+
+  <main>
+    <section class="container hero">
+      <div class="hero-text">
+        <span class="hero-badge">登録なし・完全無料</span>
+        <h1>あなたの町の入札を、<br />ひとめで。</h1>
+        <p class="hero-lead">国・県・市町村が地元で出した仕事を、市区町村ごとにまとめています。<br />まずは、あなたの地元を選んでください。</p>
+        <form class="local-form" action="/local" method="get" data-local-form>
+          <div class="field">
+            <label for="local-pref" class="field-label">都道府県</label>
+            <select id="local-pref" name="pref" class="select" required>
+              <option value="">選んでください</option>
+              {prefs.map((p) => <option value={p.slug}>{p.name}</option>)}
+            </select>
+          </div>
+          <div class="field">
+            <label for="local-city" class="field-label">市区町村</label>
+            <select id="local-city" name="city" class="select">
+              <option value="">都道府県全体</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary submit">この町の仕事を見る<Icon name="arrow" strokeWidth={2.4} /></button>
+        </form>
+        <p class="note form-note">選んだ地域はこのブラウザに保存され、次回から自動で開きます。</p>
+      </div>
+
+      <div class="hero-side">
+      <div class="board board-face" aria-label="全国の掲示板">
+        <div class="board-head">
+          <span class="board-title">{boardIsPickup ? '今週のねらい目' : '全国の掲示板'}</span>
+          <span class="board-count">今週の新着 {national.week.toLocaleString('ja-JP')}件</span>
+        </div>
+        {boardIsPickup && <p class="board-lead">紙で出せる・保証金がいらないなど、はじめてでも出しやすい仕事です。</p>}
+        <div class="board-notes">
+        {
+          boardCases.map((c, i) => {
+            const { kind, next, deadline } = boardMeta(c);
+            return (
+              <a href={`/cases/${c.id}`} class:list={['board-note', { shifted: i === 1 }]}>
+                <span class={i % 2 === 0 ? 'board-pin' : 'board-tape'} aria-hidden="true" />
+                <span class="board-meta">
+                  {[c.city_name ?? c.pref_name, kind].filter(Boolean).join('・')}
+                  {deadline && (
+                    <>
+                      　<span data-countdown={deadline}>{next.state === 'open' ? leftText(next.days) : ''}</span>
+                    </>
+                  )}
+                </span>
+                <span class="board-name">{c.ai_project_name ?? c.project_name}</span>
+              </a>
+            );
+          })
+        }
+        </div>
+      </div>
+      <RecentViewed limit={3} />
+      </div>
+    </section>
+
+    <section class="regions-band">
+      <div class="container band-inner">
+        <h2 class="band-title">地域から探す</h2>
+        <p class="band-lead">都道府県を選ぶと、市区町村ごとの入札が見られます。</p>
+        <div class="region-grid">
+          {
+            regions.map((r) => (
+              <div class="region" data-region-prefs={r.prefs.map((p) => p.slug).join(' ')}>
+                <h3>{r.name}</h3>
+                <div class="region-prefs">
+                  {r.prefs.map((p) => (
+                    <a href={`/${p.slug}`}>{shortPrefName(p.name)}</a>
+                  ))}
+                </div>
+              </div>
+            ))
+          }
+          <div class="region region-more"><a href="/gyoshu">業種から探す　›</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container guides">
+      <h2 class="band-title">入札が初めての方へ</h2>
+      <p class="band-lead">地元の仕事を受けるまでの流れを、順番に解説しています。</p>
+      <div class="guide-grid">
+        {
+          guides.slice(0, 4).map((g, i) => (
+            <a href={g.path} class="guide-card">
+              <span class="step">STEP {i + 1}</span>
+              <span class="guide-title">{g.shortTitle}</span>
+              <span class="guide-summary">{g.summary}</span>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import '../scripts/local-picker';
+</script>
+
+<style>
+  .hero { padding-top: 56px; padding-bottom: 48px; display: flex; flex-wrap: wrap; gap: 40px; align-items: center; }
+  .hero-text { flex: 999 1 520px; min-width: 0; }
+  .hero-badge { display: inline-block; background: var(--kaki-soft); color: var(--kaki-text); font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: var(--radius-pill); }
+  h1 { font-size: 44px; line-height: 1.35; margin: 16px 0 12px; font-weight: 800; }
+  .hero-lead { margin: 0 0 28px; font-size: 17px; color: var(--ink-sub); }
+  .local-form { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-panel); padding: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; box-shadow: var(--shadow-panel); }
+  .field { flex: 1 1 160px; min-width: 0; }
+  .local-form .select { height: 48px; }
+  .submit { flex: 1 1 200px; }
+  .form-note { margin: 10px 0 0; }
+
+  .hero-side { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .board { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .board-notes { display: flex; flex-direction: column; gap: 20px; padding-top: 8px; }
+  .board-lead { margin: -8px 0 0; font-size: 13px; color: var(--label-text); }
+  .board-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .board-title { font-family: var(--font-heading); font-weight: 800; color: var(--ink-heading); font-size: 18px; }
+  .board-count { font-size: 13px; color: var(--muted); }
+  .board-note:hover .board-name { text-decoration: underline; }
+  .board-note.shifted { margin-left: 18px; }
+  .board-meta { display: block; font-size: 12px; color: var(--muted); }
+  .board-name { display: block; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+
+  .regions-band { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .band-inner { padding-top: 40px; padding-bottom: 40px; }
+  .band-title { font-size: 24px; margin: 0 0 6px; }
+  .band-lead { margin: 0 0 20px; color: var(--muted); }
+  .region-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .region { border: 1px solid var(--line); border-radius: var(--radius-card); padding: 16px; background: var(--surface-soft); }
+  .region.is-local { border: 2px solid var(--kaki); padding: 15px; background: var(--kaki-soft); }
+  .region h3 { font-size: 15px; margin: 0 0 10px; }
+  .region-prefs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+  .region-more { border: 1px dashed var(--line-strong); background: transparent; display: flex; align-items: center; justify-content: center; }
+  .region-more a { font-weight: 700; text-decoration: none; }
+
+  .guides { padding-top: 40px; padding-bottom: 56px; }
+  .guide-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .guide-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 18px; text-decoration: none; color: var(--ink); }
+  .guide-card:hover { color: var(--ink); border-color: var(--line-strong); }
+  .step { display: block; font-size: 12px; color: var(--kaki-text); font-weight: 700; }
+  .guide-title { display: block; font-weight: 700; margin-top: 4px; }
+  .guide-summary { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  @media (max-width: 900px) {
+    .region-grid, .guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .hero { padding-top: 32px; padding-bottom: 32px; gap: 28px; }
+    h1 { font-size: 30px; }
+    .hero-lead { font-size: 15px; }
+    .hero-lead br { display: none; }
+    .board-note.shifted { margin-left: 10px; }
+    .region-grid, .guide-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  }
+</style>

@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jimotonyusatsu",
+  "account_id": "89cef33d9940786a848d14ed49fdc8d5",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jimotonyusatsu",
+      "database_id": "cf302650-4c73-4191-a53d-ada4b8fb5308",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // エッジキャッシュ（astro.config.mjs の routeRules）
+  "cache": { "enabled": true },
+  "observability": {
+    "enabled": true
+  }
+}

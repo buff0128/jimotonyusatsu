@@ -1,0 +1,11 @@
+---
+// 種別の小さな丸いタグ（役務・物品・工事。色は src/styles/global.css の --cat-*）
+import { categoryLabel } from '../lib/categories';
+
+type Props = { category: string | null; href?: string };
+
+const { category, href } = Astro.props;
+const className = ['cat-tag', `cat-${category ?? 'none'}`];
+---
+
+{href ? <a class:list={className} href={href}>{categoryLabel(category)}</a> : <span class:list={className}>{categoryLabel(category)}</span>}

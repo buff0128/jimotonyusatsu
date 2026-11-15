@@ -1,0 +1,79 @@
+---
+// 地域×業種の統計（過去12か月）。lgCode が '' なら全国
+import type { AreaTagInsight } from '../lib/db';
+import { MIN_YEARLY_CASES, hasEnoughData, monthlyAverage, peakText, periodLabel, recentTrend } from '../lib/insights';
+import MonthlyBarChart from './MonthlyBarChart.astro';
+
+type Props = { areaName: string; gyoshuLabel: string; insight: AreaTagInsight | null; linkableOrgs: Set<string> };
+
+const { areaName, gyoshuLabel, insight, linkableOrgs } = Astro.props;
+const enough = hasEnoughData(insight);
+const trend = enough ? recentTrend(insight) : null;
+const subject = `${areaName}の${gyoshuLabel}`;
+const yen = (n: number) => (n >= 10_000 ? `${Math.round(n / 10_000).toLocaleString('ja-JP')}万円` : `${n.toLocaleString('ja-JP')}円`);
+---
+
+<section class="insight">
+  <h2>{subject}の入札の傾向（過去12か月）</h2>
+  {
+    !enough || !insight ? (
+      <p class="muted">
+        統計は、過去12か月に官公需情報ポータルサイトへ掲載された案件が{MIN_YEARLY_CASES}件以上ある場合に表示しています。
+      </p>
+    ) : (
+      <>
+        <p>
+          {periodLabel(insight)}の{subject}の入札は<strong>{insight.total}件</strong>、月平均{monthlyAverage(insight)}件でした。
+          {insight.peak_months.length > 0 && <>件数が多かった月は{peakText(insight.peak_months)}です。</>}
+          直近3か月は月平均{trend!.recent}件で、{trend!.comparison}です。
+          {insight.top_orgs.length > 0 && (
+            <>
+              主な発注機関は
+              {insight.top_orgs.slice(0, 3).map((o, i) => (
+                <>
+                  {i > 0 && '、'}
+                  {o.name}（{o.n}件）
+                </>
+              ))}
+              です。
+            </>
+          )}
+        </p>
+        <MonthlyBarChart months={insight.months} values={insight.monthly} caption={`${subject}の月ごとの公告件数`} />
+        {insight.award_prices && (
+          <>
+            <h3>落札金額の目安</h3>
+            <p>
+              落札結果が分かる{insight.award_prices.samples}件では、落札金額の中央値は
+              <strong>{yen(insight.award_prices.median)}</strong>、中間の半数は{yen(insight.award_prices.p25)}〜{yen(insight.award_prices.p75)}でした
+              （最小{yen(insight.award_prices.min)}、最大{yen(insight.award_prices.max)}）。
+            </p>
+            <p class="muted note">
+              国の機関の仕事のうち、<a href="https://www.p-portal.go.jp/pps-web-biz/UAB02/OAB0201" rel="noopener">調達ポータル</a
+              >の落札実績オープンデータと調達案件番号で照合できたものだけの集計です（出典：調達ポータル、加工して作成）。案件の規模はさまざまなので、目安としてご覧ください。
+            </p>
+          </>
+        )}
+        {insight.top_orgs.length > 0 && (
+          <>
+            <h3>主な発注機関</h3>
+            <ol class="orgs">
+              {insight.top_orgs.map((o) => (
+                <li>
+                  {linkableOrgs.has(o.org_id) ? <a href={`/orgs/${o.org_id}`}>{o.name}</a> : o.name}：{o.n}件
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+        <p class="muted note">
+          官公需情報ポータルサイトに掲載された案件をもとに集計しています。業種は件名のキーワードなどから自動で分類しています。
+        </p>
+      </>
+    )
+  }
+</section>
+
+<style>
+  .orgs { margin: 0; padding-left: 1.6em; }
+</style>

@@ -1,0 +1,19 @@
+---
+// 統計（発注の傾向・落札金額の目安）を一覧の上に置く枠
+---
+
+<section class="container insight-wrap">
+  <div class="card insight-card"><slot /></div>
+</section>
+
+<style>
+  .insight-wrap { padding-top: 24px; }
+  .insight-card { padding: 28px 32px; }
+  .insight-card :global(h2) { font-size: 18px; margin: 0 0 12px; }
+  .insight-card :global(h3) { font-size: 15px; margin: 20px 0 6px; }
+  .insight-card :global(p) { margin: 0 0 12px; }
+  .insight-card :global(.insight + h2) { margin-top: 28px; }
+  @media (max-width: 600px) {
+    .insight-card { padding: 20px; }
+  }
+</style>

@@ -1,0 +1,288 @@
+---
+// 一覧・検索・業種・発注機関ページの共通の構成（docs/design/AfterList.dc.html。色は DESIGN.md）
+//   上の帯：パンくず・見出し・件数・種別のタブ ／ 左：絞り込み ／ 右：件数と並び順・案件カード・ページ送り
+// 絞り込みは GET のフォーム（スクリプトが動けば、変えたときにすぐ送信する）
+import type { Crumb } from './Breadcrumbs.astro';
+import Breadcrumbs from './Breadcrumbs.astro';
+import CaseList from './CaseList.astro';
+import FavoriteButton from './FavoriteButton.astro';
+import NoResultHints, { type EmptyHints } from './NoResultHints.astro';
+import Pagination from './Pagination.astro';
+import type { Area, CaseListResult } from '../lib/db';
+import { GYOSHU, type Gyoshu } from '../lib/gyoshu';
+import { LABELS } from '../lib/labels';
+import type { ListQuery } from '../lib/list-query';
+import { PAGE_SIZE, totalPages } from '../lib/pagination';
+
+export type Stat = { label: string; n: number; soon?: boolean };
+export type Tab = { label: string; href: string; current: boolean };
+
+type Props = {
+  crumbs: Crumb[];
+  heading: string;
+  lead?: string;
+  stats?: Stat[];
+  tabs?: Tab[];
+  /** 絞り込みの送信先（このページのパス） */
+  basePath: string;
+  query: ListQuery;
+  result: CaseListResult;
+  /** 市区町村の選択肢（都道府県の一覧だけ） */
+  cities?: Area[];
+  /** 業種の選択肢を出すか（業種ページでは出さない）。tagCounts があれば件数の多い順 */
+  showTags?: boolean;
+  tagCounts?: Map<string, number>;
+  /** フォームに引き継ぐ値（検索のキーワードなど） */
+  hidden?: Record<string, string>;
+  /** 条件の説明（件数の横に出す） */
+  conditions: string[];
+  /** お気に入りに保存する検索条件（/search のクエリ文字列）。無ければ保存ボタンを出さない */
+  saved?: { query: string; label: string };
+  emptyMessage?: string;
+  /** 0件のときに「次の一手」を出す（src/components/NoResultHints.astro）。無ければ出さない */
+  emptyHints?: EmptyHints;
+};
+
+const {
+  crumbs,
+  heading,
+  lead,
+  stats = [],
+  tabs = [],
+  basePath,
+  query,
+  result,
+  cities,
+  showTags = true,
+  tagCounts,
+  hidden = {},
+  conditions,
+  saved,
+  emptyMessage = '条件に合う仕事は見つかりませんでした。条件を少しゆるめてみてください。',
+  emptyHints,
+} = Astro.props;
+
+const TOP_TAGS = 6;
+const tags: Gyoshu[] = tagCounts
+  ? GYOSHU.filter((g) => (tagCounts.get(g.slug) ?? 0) > 0).sort((a, b) => (tagCounts.get(b.slug) ?? 0) - (tagCounts.get(a.slug) ?? 0))
+  : [...GYOSHU];
+// 選んでいる業種は、折りたたみの中に隠さない
+const topTags = tags.slice(0, TOP_TAGS);
+if (query.tag && !topTags.some((g) => g.slug === query.tag!.slug)) topTags.push(query.tag);
+const moreTags = tags.filter((g) => !topTags.includes(g));
+const pageCount = result.exact ? totalPages(result.total) : undefined;
+const totalText = result.exact ? `${result.total.toLocaleString('ja-JP')}件` : `${result.total.toLocaleString('ja-JP')}件以上`;
+const formId = 'list-filter';
+---
+
+<section class="band">
+  <div class="container band-inner">
+    <Breadcrumbs items={crumbs} />
+    <div class="band-row">
+      <div>
+        <h1 class="list-title">{heading}</h1>
+        {lead && <p class="page-lead">{lead}</p>}
+      </div>
+      <slot name="actions" />
+      {
+        stats.length > 0 && (
+          <div class="stats">
+            {stats.map((s) => (
+              <div class:list={['stat', { 'stat-soon': s.soon }]}>
+                <div class="stat-label">{s.label}</div>
+                <div class="stat-number">
+                  {s.n.toLocaleString('ja-JP')}
+                  <span>件</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+    </div>
+    {
+      tabs.length > 0 && (
+        <nav class="tabs" aria-label="種別">
+          {tabs.map((t) => (
+            <a href={t.href} class:list={['tab', { current: t.current }]} aria-current={t.current ? 'page' : undefined}>
+              {t.label}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+  </div>
+</section>
+
+<slot name="intro" />
+
+<main class="container layout">
+  <aside class="filters" aria-label="絞り込み">
+    <details class="filter-details" open data-filter-details>
+    <summary class="filter-summary">絞り込み{conditions.length > 0 && <span class="muted">（{conditions.length}件の条件）</span>}</summary>
+    <form id={formId} action={basePath} method="get" data-auto-submit>
+      {Object.entries(hidden).map(([name, value]) => value && <input type="hidden" name={name} value={value} />)}
+      <slot name="filters-top" />
+      {
+        cities && cities.length > 0 && (
+          <div class="group">
+            <label for="filter-city" class="field-label">市区町村</label>
+            <select id="filter-city" name="city" class="select">
+              <option value="">すべての市区町村</option>
+              {cities.map((c) => (
+                <option value={c.slug} selected={c.slug === query.citySlug}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      }
+      <fieldset class="group">
+        <legend class="field-label">参加しやすさ</legend>
+        {
+          LABELS.map((l) => (
+            <label class="check" title={l.rule}>
+              <input type="checkbox" name="label" value={l.slug} checked={query.labels.some((q) => q.slug === l.slug)} />
+              {l.label}
+            </label>
+          ))
+        }
+        <p class="note group-note">公告をAIで読んだ仕事だけに付きます（<a href="/guide/labels">基準</a>）。</p>
+      </fieldset>
+      {
+        showTags && (
+          <fieldset class="group">
+            <legend class="field-label">業種</legend>
+            <div class="tag-pills">
+              <label class="tag-pill">
+                <input type="radio" name="tag" value="" checked={!query.tag} class="sr-only" />
+                <span>指定しない</span>
+              </label>
+              {topTags.map((g) => (
+                <label class="tag-pill">
+                  <input type="radio" name="tag" value={g.slug} checked={query.tag?.slug === g.slug} class="sr-only" />
+                  <span>{g.label}</span>
+                </label>
+              ))}
+            </div>
+            {moreTags.length > 0 && (
+              <details class="more-tags">
+                <summary>すべて表示</summary>
+                <div class="tag-pills">
+                  {moreTags.map((g) => (
+                    <label class="tag-pill">
+                      <input type="radio" name="tag" value={g.slug} checked={query.tag?.slug === g.slug} class="sr-only" />
+                      <span>{g.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
+            )}
+          </fieldset>
+        )
+      }
+      <label class="check toggle">
+        締切前の仕事だけ表示
+        <input type="checkbox" name="open" value="1" checked={query.open} />
+      </label>
+      <p class="note group-note">締切が公告から読み取れた仕事だけが対象です。</p>
+      <button type="submit" class="btn btn-block apply">この条件で絞り込む</button>
+      {saved && <FavoriteButton kind="search" id={saved.query} label={saved.label} offText="この条件をお気に入りに保存" onText="この条件を保存済み" block />}
+    </form>
+    </details>
+  </aside>
+
+  <div class="results">
+    <div class="results-head">
+      <p class="count">
+        <strong>{totalText}</strong>
+        {conditions.length > 0 && <span>　{conditions.join('・')}</span>}
+      </p>
+      <label class="sort">
+        並び順
+        <select name="sort" form={formId}>
+          <option value="new" selected={query.sort === 'new'}>新着順</option>
+          <option value="deadline" selected={query.sort === 'deadline'}>締切が近い順</option>
+        </select>
+      </label>
+    </div>
+    {query.sort === 'deadline' && <p class="note sort-note">締切が近い順では、締切が公告から読み取れた仕事だけを表示します。</p>}
+    <CaseList cases={result.cases} emptyMessage={emptyMessage} />
+    {result.cases.length === 0 && emptyHints && <NoResultHints {...emptyHints} basePath={basePath} params={Astro.url.searchParams} />}
+    <Pagination page={query.page} totalPages={pageCount} hasMore={result.hasMore} basePath={basePath} params={Astro.url.searchParams} />
+    <slot name="after-list" />
+  </div>
+</main>
+
+<script>
+  // スマホでは絞り込みを畳んでおき、案件を先に見せる（条件を指定しているときは開いたまま）
+  const narrow = window.matchMedia('(max-width: 900px)');
+  for (const details of document.querySelectorAll<HTMLDetailsElement>('[data-filter-details]')) {
+    const filtered = new URLSearchParams(location.search).toString().replace(/(^|&)page=\d+/, '') !== '';
+    if (narrow.matches && !filtered) details.open = false;
+  }
+  // 絞り込みを変えたら、すぐに送信する（ボタンはスクリプトが無効なとき用）
+  for (const form of document.querySelectorAll<HTMLFormElement>('form[data-auto-submit]')) {
+    const submit = () => form.requestSubmit();
+    form.addEventListener('change', submit);
+    document.querySelector(`select[form="${form.id}"]`)?.addEventListener('change', submit);
+  }
+</script>
+
+<style>
+  .band { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .band-inner { padding-top: 20px; }
+  .band-inner:not(:has(.tabs)) { padding-bottom: 24px; }
+  .band-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: 8px; }
+  .list-title { font-size: 30px; font-weight: 800; margin: 0; line-height: 1.4; }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; }
+  .stat { background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-box); padding: 10px 16px; }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .stat-number { font-family: var(--font-heading); font-size: 22px; font-weight: 800; color: var(--ink-heading); line-height: 1.3; }
+  .stat-number span { font-size: 13px; }
+  .stat-soon { background: var(--kaki-soft); border-color: var(--kaki-line); }
+  .stat-soon .stat-label, .stat-soon .stat-number { color: var(--kaki-text); }
+  .tabs { display: flex; gap: 4px; margin-top: 20px; overflow-x: auto; }
+  .tab { padding: 10px 16px; border-bottom: 3px solid transparent; color: var(--ink-sub); font-weight: 500; text-decoration: none; white-space: nowrap; }
+  .tab:hover { color: var(--ink); }
+  .tab.current { border-bottom-color: var(--kaki-strong); color: var(--kaki-text); font-weight: 700; }
+
+  .layout { padding-top: 24px; padding-bottom: 64px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .filters { flex: 1 1 306px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 22px; }
+  .filter-summary { cursor: pointer; font-weight: 700; font-size: 15px; list-style: none; display: none; }
+  .filter-summary::-webkit-details-marker { display: none; }
+  .filters form { display: flex; flex-direction: column; gap: 20px; }
+  .group { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .group-note { margin: 4px 0 0; }
+  .filters .group + .note { margin-top: -16px; }
+  .tag-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-pill span { display: inline-block; padding: 6px 12px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-sub); font-size: 13px; cursor: pointer; line-height: 1.5; }
+  .tag-pill input:checked + span { border-color: var(--kaki-strong); background: var(--kaki-soft); color: var(--kaki-text); font-weight: 700; }
+  .tag-pill input:focus-visible + span { outline: 2px solid var(--link); outline-offset: 2px; }
+  .more-tags { margin-top: 8px; }
+  .more-tags summary { cursor: pointer; font-size: 13px; color: var(--link); padding: 6px 0; }
+  .more-tags .tag-pills { margin-top: 6px; }
+  .toggle { justify-content: space-between; min-height: var(--tap); font-weight: 700; border-top: 1px solid var(--line-faint); padding-top: 12px; }
+  .filters form > .toggle + .note { margin-top: -16px; }
+
+  .results { flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+  .count { margin: 0; font-size: 14px; color: var(--ink-sub); }
+  .count strong { color: var(--ink); }
+  .sort { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-sub); }
+  .sort select { height: 36px; border: 1px solid var(--line-strong); border-radius: var(--radius-nav); padding: 0 10px; font-size: 13px; background: var(--surface); color: var(--ink); }
+  .sort-note { margin: -4px 0 0; }
+
+  @media (max-width: 900px) {
+    .filter-summary { display: flex; align-items: center; justify-content: space-between; min-height: 28px; }
+    .filter-summary::after { content: '＋'; color: var(--muted); }
+    .filter-details[open] .filter-summary { margin-bottom: 16px; }
+    .filter-details[open] .filter-summary::after { content: '－'; }
+  }
+  @media (max-width: 600px) {
+    .band-inner { padding-top: 16px; }
+    .list-title { font-size: 24px; }
+    .filters { padding: 16px; }
+  }
+</style>

@@ -1,0 +1,75 @@
+---
+// 発注機関の統計（過去12か月）。年間 MIN_YEARLY_CASES 件未満なら統計は出さない（ページは noindex。呼び出し側で判定）
+import type { OrgInsight } from '../lib/db';
+import { categoryLabel } from '../lib/categories';
+import { gyoshuLabel } from '../lib/gyoshu';
+import { MIN_YEARLY_CASES, hasEnoughData, monthlyAverage, peakText, periodLabel, recentTrend } from '../lib/insights';
+import MonthlyBarChart from './MonthlyBarChart.astro';
+
+type Props = { name: string; insight: OrgInsight | null; prefSlug: string | null };
+
+const { name, insight, prefSlug } = Astro.props;
+const enough = hasEnoughData(insight);
+const trend = enough ? recentTrend(insight) : null;
+---
+
+<section class="insight">
+  <h2>発注の傾向（過去12か月）</h2>
+  {
+    !enough || !insight ? (
+      <p class="muted">
+        統計は、過去12か月に官公需情報ポータルサイトへ掲載された案件が{MIN_YEARLY_CASES}件以上ある発注機関で表示しています。
+      </p>
+    ) : (
+      <>
+        <p>
+          {periodLabel(insight)}に{name}が公告した仕事は<strong>{insight.total}件</strong>、月平均{monthlyAverage(insight)}件でした。
+          {insight.peak_months.length > 0 && <>件数が多かった月は{peakText(insight.peak_months)}です。</>}
+          直近3か月は月平均{trend!.recent}件で、{trend!.comparison}です。
+        </p>
+        <MonthlyBarChart months={insight.months} values={insight.monthly} caption={`${name}の月ごとの公告件数`} />
+        <div class="breakdown">
+          <div>
+            <h3>種別の内訳</h3>
+            <ul>
+              {Object.entries(insight.by_category).map(([slug, n]) => (
+                <li>{categoryLabel(slug || null)}：{n}件</li>
+              ))}
+            </ul>
+          </div>
+          {insight.by_tag.length > 0 && (
+            <div>
+              <h3>多い業種</h3>
+              <ul>
+                {insight.by_tag.map(([tag, n]) => (
+                  <li>
+                    {prefSlug ? <a href={`/${prefSlug}/gyoshu/${tag}`}>{gyoshuLabel(tag)}</a> : gyoshuLabel(tag)}：{n}件
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        {(insight.days_to_deadline || insight.days_to_opening) && (
+          <p>
+            {insight.days_to_deadline && (
+              <>公告から入札書の提出期限までは平均{insight.days_to_deadline.days}日（期限が分かる{insight.days_to_deadline.samples}件）。</>
+            )}
+            {insight.days_to_opening && (
+              <>公告から開札までは平均{insight.days_to_opening.days}日（開札日が分かる{insight.days_to_opening.samples}件）。</>
+            )}
+          </p>
+        )}
+        <p class="muted note">
+          官公需情報ポータルサイトに掲載された案件をもとに集計しています。発注機関が公告したすべての案件ではありません。業種は件名のキーワードなどから自動で分類しています。
+        </p>
+      </>
+    )
+  }
+</section>
+
+<style>
+  .breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 24px; }
+  .breakdown h3 { font-size: 15px; margin: 8px 0 4px; }
+  .breakdown ul { margin: 0; padding-left: 1.2em; }
+</style>

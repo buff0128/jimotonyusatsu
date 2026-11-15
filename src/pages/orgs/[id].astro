@@ -1,0 +1,58 @@
+---
+// 発注機関（/orgs/{org_id}）。機関名は官公需APIの OrganizationName そのまま
+import CaseBrowser from '../../components/CaseBrowser.astro';
+import FavoriteButton from '../../components/FavoriteButton.astro';
+import InsightCard from '../../components/InsightCard.astro';
+import OrgInsightSection from '../../components/OrgInsightSection.astro';
+import Base from '../../layouts/Base.astro';
+import { getOrg, getOrgInsight, listCases } from '../../lib/db';
+import { todayInJst } from '../../lib/format';
+import { hasEnoughData } from '../../lib/insights';
+import { describeQuery, isFiltered, readListQuery } from '../../lib/list-query';
+import { PAGE_SIZE } from '../../lib/pagination';
+
+const id = Astro.params.id ?? '';
+const org = /^[0-9a-f]{10}$/.test(id) ? await getOrg(id) : null;
+if (!org) return Astro.rewrite('/404');
+
+const query = readListQuery(Astro.url);
+const filtered = isFiltered(query);
+const [result, insight] = await Promise.all([
+  listCases(
+    {
+      orgId: org.org_id,
+      tag: query.tag?.slug,
+      labels: query.labels.map((l) => l.slug),
+      deadlineFrom: query.open || query.sort === 'deadline' ? todayInJst() : undefined,
+    },
+    { limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE, sort: query.sort },
+  ),
+  getOrgInsight(org.org_id),
+]);
+// 統計が出せない（年間5件未満）機関のページは noindex
+const thin = !hasEnoughData(insight);
+const heading = `${org.organization_name}の入札情報`;
+---
+
+<Base noindex={filtered || thin} title={heading} description={`${org.organization_name}が公告した入札の仕事の一覧です（${org.case_count}件）。`} bare>
+  <CaseBrowser
+    crumbs={[...(org.pref_slug ? [{ label: org.prefecture_name ?? '', href: `/${org.pref_slug}` }] : []), { label: org.organization_name }]}
+    heading={heading}
+    lead="発注機関名は官公需情報ポータルサイトの表記のままです。表記が違う仕事は、別の機関として表示されることがあります。"
+    stats={[{ label: '掲載中', n: org.case_count }]}
+    basePath={`/orgs/${org.org_id}`}
+    query={query}
+    result={result}
+    conditions={describeQuery(query)}
+    emptyHints={{ pref: org.pref_slug ? { lg_code: org.lg_code, slug: org.pref_slug, name: org.prefecture_name ?? '' } : null }}
+  >
+    <FavoriteButton slot="actions" kind="org" id={org.org_id} offText="この機関をお気に入りに追加" onText="お気に入りに登録済み" />
+    {
+      query.page === 1 && !filtered && (
+        <InsightCard slot="intro">
+          <OrgInsightSection name={org.organization_name} insight={insight} prefSlug={org.pref_slug} />
+        </InsightCard>
+      )
+    }
+  </CaseBrowser>
+</Base>

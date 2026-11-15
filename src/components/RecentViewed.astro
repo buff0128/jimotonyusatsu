@@ -1,0 +1,27 @@
+---
+// 横の枠の「最近見た仕事」（このブラウザの記録。src/scripts/recent-ui.ts が描く）。記録が無ければ枠ごと出さない
+// 中身はブラウザだけで決まるので、検索エンジン向けの HTML には何も入らない
+type Props = { limit?: number };
+
+const { limit = 5 } = Astro.props;
+---
+
+<section class="side-card recent no-print" data-recent-box data-recent-hide-empty hidden>
+  <h2>最近見た仕事</h2>
+  <ul class="recent-list" data-recent-list data-recent-limit={limit}></ul>
+  <a class="recent-more" href="/favorites#recent">すべて見る・記録を消す　›</a>
+</section>
+
+<script>
+  import '../scripts/recent-ui';
+</script>
+
+<style>
+  .recent-list { list-style: none; margin: 0; padding: 0; }
+  .recent-list :global(li) { padding: 10px 0; border-top: 1px solid var(--line-faint); font-size: 14px; overflow-wrap: anywhere; }
+  .recent-list :global(.recent-title) { color: var(--ink); text-decoration: none; }
+  .recent-list :global(.recent-title:hover) { color: var(--link-hover); text-decoration: underline; }
+  .recent-list :global(.recent-meta) { display: block; font-size: 12px; color: var(--muted); }
+  .recent-list :global(.is-closed) { opacity: 0.55; }
+  .recent-more { display: flex; align-items: center; min-height: var(--tap); border-top: 1px solid var(--line-faint); font-size: 14px; font-weight: 700; text-decoration: none; }
+</style>

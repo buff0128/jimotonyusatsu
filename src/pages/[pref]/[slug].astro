@@ -1,0 +1,17 @@
+---
+// /ibaraki/koji のような「県×種別」（一覧）と、/ibaraki/mito のような「市区町村」（市区町村のページ）を同じ階層で扱う
+import AreaDashboard from '../../components/AreaDashboard.astro';
+import PrefCaseList from '../../components/PrefCaseList.astro';
+import { findCategory } from '../../lib/categories';
+import { getCityBySlug, getPrefBySlug } from '../../lib/db';
+
+const pref = await getPrefBySlug(Astro.params.pref ?? '');
+if (!pref) return Astro.rewrite('/404');
+
+const slug = Astro.params.slug ?? '';
+const category = findCategory(slug);
+const city = category ? null : await getCityBySlug(pref.lg_code, slug);
+if (!category && !city) return Astro.rewrite('/404');
+---
+
+{category ? <PrefCaseList pref={pref} category={category} /> : <AreaDashboard pref={pref} city={city} />}

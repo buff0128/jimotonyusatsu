@@ -1,0 +1,85 @@
+---
+// 月ごとの件数の棒グラフ（1系列。サーバーで SVG を出す）
+// 棒は細め・上端だけ角丸4px・棒の間に2pxの隙間。ホバーで値（<title>）。値は表でも読める（<details>）
+type Props = { months: string[]; values: number[]; caption: string };
+
+const { months, values, caption } = Astro.props;
+const W = 640;
+const H = 200;
+const PAD = { top: 16, right: 8, bottom: 28, left: 32 };
+const plotW = W - PAD.left - PAD.right;
+const plotH = H - PAD.top - PAD.bottom;
+const max = Math.max(1, ...values);
+const step = niceStep(max);
+const yMax = Math.ceil(max / step) * step;
+const ticks = Array.from({ length: Math.floor(yMax / step) + 1 }, (_, i) => i * step);
+const slot = plotW / values.length;
+const barW = Math.max(4, Math.min(28, slot - 2));
+const y = (v: number) => PAD.top + plotH - (v / yMax) * plotH;
+const monthLabel = (ym: string) => `${Number(ym.slice(5))}月`;
+const fullLabel = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5))}月`;
+
+function niceStep(maxValue: number): number {
+  const raw = maxValue / 4;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? raw;
+}
+
+/** 上端だけ角丸の棒 */
+function barPath(x: number, top: number, w: number, bottom: number): string {
+  const r = Math.min(4, w / 2, bottom - top);
+  if (r <= 0) return '';
+  return `M${x},${bottom}V${top + r}Q${x},${top} ${x + r},${top}H${x + w - r}Q${x + w},${top} ${x + w},${top + r}V${bottom}Z`;
+}
+---
+
+<figure class="chart">
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${caption}（${fullLabel(months[0])}〜${fullLabel(months.at(-1)!)}）`}>
+    {
+      ticks.map((t) => (
+        <g>
+          <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} class="grid" />
+          <text x={PAD.left - 6} y={y(t) + 4} class="tick" text-anchor="end">{t}</text>
+        </g>
+      ))
+    }
+    {
+      values.map((v, i) => {
+        const x = PAD.left + i * slot + (slot - barW) / 2;
+        return (
+          <g class="bar">
+            <rect x={PAD.left + i * slot} y={PAD.top} width={slot} height={plotH} class="hit">
+              <title>{`${fullLabel(months[i])}：${v}件`}</title>
+            </rect>
+            {v > 0 && <path d={barPath(x, y(v), barW, y(0))} class="mark" />}
+            <text x={x + barW / 2} y={H - 10} class="tick" text-anchor="middle">{monthLabel(months[i])}</text>
+          </g>
+        );
+      })
+    }
+  </svg>
+  <figcaption class="muted">{caption}（{fullLabel(months[0])}〜{fullLabel(months.at(-1)!)}。棒にカーソルを合わせると件数）</figcaption>
+  <details>
+    <summary>表で見る</summary>
+    <table>
+      <thead><tr><th>月</th><th>件数</th></tr></thead>
+      <tbody>{months.map((m, i) => <tr><td>{fullLabel(m)}</td><td>{values[i]}</td></tr>)}</tbody>
+    </table>
+  </details>
+</figure>
+
+<style>
+  .chart { margin: 8px 0 16px; }
+  .chart svg { width: 100%; max-width: 640px; height: auto; display: block; }
+  .chart .grid { stroke: var(--line-faint); stroke-width: 1; }
+  .chart .tick { font-size: 11px; fill: var(--muted); }
+  .chart .mark { fill: var(--kaki); }
+  .chart .hit { fill: transparent; }
+  .chart .bar:hover .mark { fill: var(--kaki-strong); }
+  .chart figcaption { font-size: 12px; margin-top: 4px; }
+  .chart details { font-size: 13px; margin-top: 4px; }
+  .chart summary { cursor: pointer; color: var(--link); }
+  .chart table { border-collapse: collapse; margin-top: 4px; }
+  .chart td, .chart th { border: 1px solid var(--line); padding: 2px 10px; text-align: right; background: var(--surface); }
+  .chart th:first-child, .chart td:first-child { text-align: left; }
+</style>

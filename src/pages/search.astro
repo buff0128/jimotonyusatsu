@@ -1,0 +1,102 @@
+---
+// キーワード検索（D1 の LIKE）。検索結果は本番でも noindex。構成は一覧ページと同じ（src/components/CaseBrowser.astro）
+import CaseBrowser from '../components/CaseBrowser.astro';
+import Base from '../layouts/Base.astro';
+import { CATEGORIES, findCategory } from '../lib/categories';
+import { listCases, listCitiesWithCounts, listPrefsWithCounts, splitKeyword, type CaseListResult } from '../lib/db';
+import { POPULAR_KEYWORDS } from '../lib/gyoshu';
+import { describeQuery, readListQuery, savedQueryOf } from '../lib/list-query';
+import { PAGE_SIZE } from '../lib/pagination';
+import { hasSearchCondition, readKeyword, searchFilterOf } from '../lib/search-filter';
+
+Astro.response.headers.set('X-Robots-Tag', 'noindex, follow');
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+const params = Astro.url.searchParams;
+const q = readKeyword(params);
+const query = readListQuery(Astro.url);
+const prefs = await listPrefsWithCounts();
+const pref = prefs.find((p) => p.slug === params.get('pref'));
+const cities = pref ? await listCitiesWithCounts(pref.lg_code) : [];
+const city = cities.find((c) => c.slug === query.citySlug);
+const category = findCategory(params.get('category') ?? '');
+
+const filter = searchFilterOf(params, query, { lgCode: pref?.lg_code, cityCode: city?.code });
+const hasCondition = hasSearchCondition(filter, query);
+// よく探されることば：都道府県を選んでいれば、その都道府県で探す
+const popularHref = (word: string) => `/search?${new URLSearchParams({ q: word, ...(pref && { pref: pref.slug }) })}`;
+const empty: CaseListResult = { cases: [], total: 0, exact: true, hasMore: false };
+// キーワード検索は公告文を全件なめるので、件数（COUNT）は数えない（listCases が「◯件以上」で返す）
+const result = hasCondition
+  ? await listCases(filter, { limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE, sort: query.sort })
+  : empty;
+
+const conditions = [
+  ...splitKeyword(q).map((t) => `「${t}」`),
+  pref?.name,
+  category?.label,
+  ...describeQuery(query, city?.name),
+].filter((s): s is string => Boolean(s));
+const conditionLabel = conditions.join('・');
+---
+
+<Base title={hasCondition ? `${conditionLabel}の検索結果` : '入札情報を検索'} noindex searchQuery={q} bare>
+  <CaseBrowser
+    crumbs={[{ label: '検索' }]}
+    heading={hasCondition ? `${conditionLabel}の検索結果` : '入札の仕事を検索'}
+    lead="件名・発注機関・公告文から探せます。空白で区切ると、すべての語を含む仕事を探します。"
+    basePath="/search"
+    query={query}
+    result={result}
+    cities={cities}
+    conditions={[]}
+    saved={hasCondition ? { query: savedQueryOf(params), label: conditionLabel } : undefined}
+    emptyMessage={hasCondition ? '条件に合う仕事は見つかりませんでした。下の候補からも探せます。' : 'キーワードを入れるか、地域や業種を選んでみてください。'}
+    emptyHints={hasCondition ? { terms: splitKeyword(q), pref } : undefined}
+  >
+    <Fragment slot="filters-top">
+      <div class="group">
+        <label for="search-q" class="field-label">キーワード</label>
+        <input id="search-q" type="search" name="q" value={q} placeholder="例：清掃 水戸市" class="text-input" />
+        <div class="popular">
+          <span class="note">よく探されることば</span>
+          <ul class="popular-words">
+            {POPULAR_KEYWORDS.map((word) => <li><a class="popular-word" href={popularHref(word)}>{word}</a></li>)}
+          </ul>
+        </div>
+      </div>
+      <div class="group">
+        <label for="search-pref" class="field-label">都道府県</label>
+        <select id="search-pref" name="pref" class="select" data-reset-city>
+          <option value="">すべて</option>
+          {prefs.map((p) => <option value={p.slug} selected={p.slug === pref?.slug}>{p.name}</option>)}
+        </select>
+      </div>
+      <div class="group">
+        <label for="search-category" class="field-label">種別</label>
+        <select id="search-category" name="category" class="select">
+          <option value="">すべて</option>
+          {CATEGORIES.map((c) => <option value={c.slug} selected={c.slug === category?.slug}>{c.label}</option>)}
+        </select>
+      </div>
+    </Fragment>
+  </CaseBrowser>
+</Base>
+
+<script>
+  // 都道府県を変えたら、前の都道府県の市区町村の選択は外す
+  // HTMLSelectElement は Workers の型と remove() の型がぶつかるため as で受ける（src/scripts/local-picker.ts と同じ）
+  const prefSelect = document.querySelector('[data-reset-city]') as HTMLSelectElement | null;
+  prefSelect?.addEventListener('change', () => {
+    const city = prefSelect.form?.querySelector('select[name="city"]') as HTMLSelectElement | null | undefined;
+    if (city) city.value = '';
+  });
+</script>
+
+<style>
+  .popular { margin-top: 10px; }
+  .popular .note { display: block; margin-bottom: 4px; }
+  .popular-words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .popular-word { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--surface-soft); color: var(--ink); font-size: 13px; text-decoration: none; }
+  .popular-word:hover { color: var(--ink); border-color: var(--line-strong); }
+</style>

@@ -1,0 +1,21 @@
+---
+// docs/content/*.md（frontmatter の path が一致するもの）を1ページとして表示する
+import { getCollection, render } from 'astro:content';
+import type { Crumb } from '../components/Breadcrumbs.astro';
+import Base from './Base.astro';
+
+type Props = { path: string; parents?: Crumb[] };
+
+const { path, parents = [] } = Astro.props;
+const entry = (await getCollection('pages')).find((e) => e.data.path === path);
+if (!entry) throw new Error(`docs/content に path: ${path} のページがありません`);
+const { Content } = await render(entry);
+const crumbLabel = entry.data.title.split('｜')[0];
+---
+
+<Base title={entry.data.title} description={entry.data.description} breadcrumbs={[...parents, { label: crumbLabel }]}>
+  <article class="prose">
+    <Content />
+    <slot />
+  </article>
+</Base>

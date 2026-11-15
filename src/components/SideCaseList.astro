@@ -1,0 +1,45 @@
+---
+// 横の枠の、案件の短い一覧（件名と「発注機関・あと◯日」）
+import type { CaseSummary } from '../lib/db';
+import { leftText, nextDeadline, shortDate, type DeadlineCandidate } from '../lib/deadlines';
+
+type Props = { cases: CaseSummary[]; showOrg?: boolean };
+
+const { cases, showOrg = true } = Astro.props;
+const now = Date.now();
+const meta = (c: CaseSummary) => {
+  const tender = c.tender_submission_deadline ?? c.ai_tender_deadline;
+  const candidates: DeadlineCandidate[] = [
+    ...(c.ai_application_deadline ? [['参加申請', c.ai_application_deadline] as DeadlineCandidate] : []),
+    ...(tender ? [['入札書の提出', tender] as DeadlineCandidate] : []),
+  ];
+  const next = nextDeadline(candidates, now);
+  return { next, issue: c.cft_issue_date ? `公告 ${shortDate(c.cft_issue_date)}` : null };
+};
+---
+
+{
+  cases.map((c) => {
+    const { next, issue } = meta(c);
+    return (
+      <a class="side-case" href={`/cases/${c.id}`}>
+        {c.ai_project_name ?? c.project_name}
+        <span class="side-case-meta">
+          {[showOrg ? c.organization_name : null, issue].filter(Boolean).join('・')}
+          {next.state === 'open' && (
+            <>
+              ・<span data-countdown={next.value}>{leftText(next.days)}</span>
+            </>
+          )}
+          {next.state === 'closed' && '・受付終了'}
+        </span>
+      </a>
+    );
+  })
+}
+
+<style>
+  .side-case { display: block; padding: 10px 0; border-top: 1px solid var(--line-faint); text-decoration: none; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+  .side-case:hover { color: var(--link-hover); text-decoration: underline; }
+  .side-case-meta { display: block; font-size: 12px; color: var(--muted); }
+</style>

@@ -1,0 +1,222 @@
+/*
+ * デザインの値（docs/design/DESIGN.md）。色・文字・角丸・影はここで定義した変数だけを使う。
+ * 見本は docs/design/*.dc.html。値を変えるときは DESIGN.md も合わせて直す。
+ */
+:root {
+  /* 面 */
+  --ground: #faf7f2; /* ページの背景（生成り） */
+  --surface: #ffffff; /* カード */
+  --surface-soft: #fbf8f3; /* カード内の薄い面 */
+  --board: #efe6d6; /* 掲示板の面、フッターの帯 */
+  --board-line: #e2d6c1; /* 掲示板・フッターの枠線 */
+  /* 線 */
+  --line: #e8e1d6; /* カードの枠線 */
+  --line-strong: #d9cfbf; /* 入力欄・ボタンの枠線 */
+  --line-faint: #f0eae0; /* カード内の区切り線 */
+  /* 文字 */
+  --ink: #1f2933; /* 本文 */
+  --ink-heading: #2b2622; /* 見出し、大きい数字 */
+  --ink-sub: #3f4752; /* 補足の本文 */
+  --muted: #5e6670; /* 日付・機関名などの補足 */
+  /* 柿 */
+  --kaki: #e0652b; /* ロゴ・図形・ピン。文字やボタン地には使わない */
+  --kaki-strong: #c2501c; /* メインのボタン（白文字）、☆、件数バッジ */
+  --on-kaki: #ffffff; /* kaki-strong の面に載せる文字・アイコン */
+  --kaki-text: #b84a18; /* 柿色の文字（地名、締切） */
+  --kaki-soft: #fdf0e8; /* 締切が近いときの面、STEP の面 */
+  --kaki-line: #f3d3bf; /* kaki-soft の面の枠線 */
+  --tape: rgba(226, 214, 193, 0.75); /* 貼り紙のマスキングテープ（生成り系の半透明） */
+  /* リンク（柿渋の茶色。生成り・白・板の面のどれでも 4.5:1 以上。地名の --kaki-text より暗く渋い） */
+  --link: #7a3e1c;
+  --link-hover: #5e2f14;
+  /* ラベル・状態 */
+  --label-bg: #f3ece2;
+  --label-text: #4a3f35;
+  --ok: #3f7d4e;
+  --ai: #6a3fc0; /* AI が読み取った項目の印 */
+  /* 種別の小さな丸いタグ */
+  --cat-ekimu-bg: #f1eafd;
+  --cat-ekimu-text: #6a3fc0;
+  --cat-buppin-bg: #e8f3eb;
+  --cat-buppin-text: #2f6b3e;
+  --cat-koji-bg: #fbefe3;
+  --cat-koji-text: #8a4b0f;
+  /* 資料の種類（公告・資料のリンク） */
+  --file-bg: #fdecec;
+  --file-text: #b42318;
+
+  /* 文字 */
+  --font-body: 'Noto Sans JP', system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  --font-heading: 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif;
+
+  /* 形 */
+  --radius-board: 22px; /* 掲示板のイメージ */
+  --radius-panel: 18px; /* トップの地元選択フォーム */
+  --radius-lg: 16px; /* 大きいカード */
+  --radius-card: 14px; /* 案件カード */
+  --radius-box: 12px; /* カード内の面 */
+  --radius-control: 10px; /* ボタン・入力欄 */
+  --radius-nav: 8px; /* ヘッダーのリンク */
+  --radius-label: 6px; /* 参加しやすさのラベル */
+  --radius-pill: 999px; /* タグ・ピル */
+  --shadow-card: 0 1px 2px rgba(60, 40, 20, 0.05);
+  --shadow-panel: 0 2px 6px rgba(60, 40, 20, 0.06);
+  --shadow-note: 0 1px 3px rgba(60, 40, 20, 0.08);
+
+  /* 余白 */
+  --content-width: 1200px; /* 余白を除いた本文の幅（見本は max-width 1200px ＋左右 24px） */
+  --gutter: 24px;
+  --tap: 44px; /* タップできる要素の高さ */
+}
+
+@media (max-width: 600px) {
+  :root { --gutter: 16px; }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { background: var(--ground); }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--ground);
+  -webkit-text-size-adjust: 100%;
+}
+a { color: var(--link); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+a:hover { color: var(--link-hover); }
+h1, h2, h3 { font-family: var(--font-heading); color: var(--ink-heading); }
+img, svg { max-width: 100%; }
+button, input, select { font: inherit; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+.container { max-width: calc(var(--content-width) + var(--gutter) * 2); margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.muted { color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); }
+.big-number { font-family: var(--font-heading); font-weight: 800; color: var(--ink-heading); }
+
+/* 見出し */
+.page-title { font-size: 38px; font-weight: 800; line-height: 1.35; margin: 0; }
+.page-lead { margin: 6px 0 0; color: var(--ink-sub); }
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.section-head h2, .section-title { font-size: 22px; margin: 0; }
+.more-link { font-size: 14px; font-weight: 700; text-decoration: none; }
+@media (max-width: 600px) {
+  .page-title { font-size: 28px; }
+  .section-head h2, .section-title { font-size: 20px; }
+}
+
+/* カード */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.side-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px 24px; box-shadow: var(--shadow-card); }
+.side-card > h2 { font-size: 17px; margin: 0 0 8px; }
+.side-list-link { display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-faint); text-decoration: none; color: var(--ink); font-size: 14px; }
+.side-list-link .n { color: var(--muted); flex: none; }
+
+/* ボタン */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 0 16px; border-radius: var(--radius-control);
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  font-size: 14px; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.btn:hover { color: var(--ink); border-color: var(--muted); }
+.btn-primary { min-height: 48px; border: 0; background: var(--kaki-strong); color: var(--on-kaki); font-size: 15px; }
+.btn-primary:hover { color: var(--on-kaki); background: var(--kaki-text); }
+.btn-block { display: flex; width: 100%; }
+.icon-star { stroke: var(--kaki-strong); }
+
+/* ピル・タグ・ラベル */
+.pill-link { display: inline-block; padding: 10px 16px; border-radius: var(--radius-pill); background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); font-size: 14px; line-height: 1.5; }
+.pill-link:hover { color: var(--ink); border-color: var(--line-strong); }
+.pill-link .n { color: var(--muted); }
+.pill-soft { display: inline-block; padding: 8px 14px; border-radius: var(--radius-pill); background: var(--surface-soft); border: 1px solid var(--line); text-decoration: none; color: var(--ink); font-size: 14px; line-height: 1.5; }
+.pill-soft:hover { color: var(--ink); border-color: var(--line-strong); }
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+.cat-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: var(--radius-pill); text-decoration: none; line-height: 1.6; white-space: nowrap; }
+.cat-ekimu { background: var(--cat-ekimu-bg); color: var(--cat-ekimu-text); }
+.cat-buppin { background: var(--cat-buppin-bg); color: var(--cat-buppin-text); }
+.cat-koji { background: var(--cat-koji-bg); color: var(--cat-koji-text); }
+.cat-none { background: var(--ground); color: var(--ink-sub); border: 1px solid var(--line); }
+a.cat-ekimu:hover { color: var(--cat-ekimu-text); }
+a.cat-buppin:hover { color: var(--cat-buppin-text); }
+a.cat-koji:hover { color: var(--cat-koji-text); }
+.sub-tag { display: inline-block; background: var(--ground); color: var(--ink-sub); font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: var(--radius-pill); border: 1px solid var(--line); text-decoration: none; line-height: 1.6; }
+a.sub-tag:hover { color: var(--ink); }
+
+.label-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.label-chip { display: inline-block; background: var(--label-bg); color: var(--label-text); font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-label); line-height: 1.5; }
+
+/* 掲示板の面と貼り紙（トップ・都道府県・市区町村ページの「掲示板」だけ。一覧・検索・詳細のカードは傾けない）
+ *   .board-face … 板の面　.board-note … 貼り紙（--tilt でわずかに傾ける）
+ *   .board-pin / .board-tape … 貼り紙の上の柿のピン／マスキングテープ */
+.board-face { background: var(--board); border: 1px solid var(--board-line); border-radius: var(--radius-board); padding: 28px; }
+.board-note { position: relative; display: block; background: var(--surface); border-radius: var(--radius-control); padding: 18px 16px 14px; box-shadow: var(--shadow-note); text-decoration: none; color: var(--ink); transform: rotate(var(--tilt, 0deg)); }
+.board-note:hover { color: var(--ink); }
+.board-notes > :nth-child(6n + 1) { --tilt: -1.2deg; }
+.board-notes > :nth-child(6n + 2) { --tilt: 0.8deg; }
+.board-notes > :nth-child(6n + 3) { --tilt: -0.5deg; }
+.board-notes > :nth-child(6n + 4) { --tilt: 1.1deg; }
+.board-notes > :nth-child(6n + 5) { --tilt: -0.9deg; }
+.board-notes > :nth-child(6n + 6) { --tilt: 0.5deg; }
+.board-pin { position: absolute; top: -6px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: var(--radius-pill); background: var(--kaki); box-shadow: var(--shadow-note); }
+.board-tape { position: absolute; top: -9px; left: 50%; width: 64px; height: 18px; margin-left: -32px; background: var(--tape); transform: rotate(-3deg); }
+@media (max-width: 600px) {
+  .board-face { padding: 20px 16px; }
+  /* スマホでは傾きを半分に（読みやすさを優先） */
+  .board-note { transform: rotate(calc(var(--tilt, 0deg) * 0.5)); }
+}
+
+/* 小さな動き（動きを減らす設定のときは出さない） */
+@media (prefers-reduced-motion: no-preference) {
+  .board-note { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+  .board-note:hover, .board-note:focus-visible { transform: translateY(-3px) rotate(0deg); box-shadow: var(--shadow-panel); }
+}
+
+/* 新着のピル（公告日から3日以内。出すかどうかはブラウザで決める：src/scripts/countdown.ts） */
+.new-pill { display: inline-block; background: var(--kaki-soft); color: var(--kaki-text); font-size: 12px; font-weight: 700; padding: 0 10px; border-radius: var(--radius-pill); line-height: 1.7; white-space: nowrap; }
+
+/* AI の印 */
+.ai-mark { color: var(--ai); font-weight: 700; font-size: 12px; }
+.ai-badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--line-strong); border-radius: var(--radius-pill); padding: 1px 8px; line-height: 1.6; white-space: nowrap; vertical-align: middle; }
+
+/* パンくず */
+.breadcrumbs ol { list-style: none; display: flex; flex-wrap: wrap; gap: 0; padding: 0; margin: 0; font-size: 13px; color: var(--muted); }
+.breadcrumbs li:not(:last-child)::after { content: '›'; margin: 0 0.9em; }
+.breadcrumbs a { text-decoration: none; }
+
+/* フォーム */
+.field-label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.select, .text-input { width: 100%; height: var(--tap); border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 0 12px; background: var(--surface); color: var(--ink); }
+.check { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--kaki-strong); margin: 0; flex: none; }
+
+/* 本文（解説記事など） */
+.prose { max-width: 760px; }
+.prose h1 { font-size: 30px; line-height: 1.4; margin: 8px 0 16px; }
+.prose h2 { font-size: 22px; margin: 40px 0 12px; }
+.prose h3 { font-size: 17px; margin: 24px 0 8px; }
+.prose li { margin: 4px 0; }
+.prose table, .data-table { border-collapse: collapse; margin: 16px 0; background: var(--surface); }
+.prose th, .prose td, .data-table th, .data-table td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.prose th, .data-table th { background: var(--surface-soft); font-size: 14px; }
+@media (max-width: 600px) {
+  .prose h1 { font-size: 24px; }
+}
+
+/* 印刷（案件詳細の「印刷」）。ヘッダー・フッター・ボタン類は .no-print で消す */
+.print-only { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: var(--surface); }
+  body { font-size: 11pt; line-height: 1.6; }
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  .card, .side-card { box-shadow: none; }
+  a { color: var(--ink); text-decoration: none; }
+}

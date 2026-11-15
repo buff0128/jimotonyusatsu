@@ -1,0 +1,36 @@
+---
+// 参加しやすさのラベル（src/lib/labels.ts）。large は案件詳細の上部用（アイコンつき）
+import { findLabel } from '../lib/labels';
+import Icon, { type IconName } from './Icon.astro';
+
+type Props = { slugs: string[]; large?: boolean };
+
+const { slugs, large = false } = Astro.props;
+const labels = slugs.map(findLabel).filter((l) => l !== undefined);
+const ICONS: Record<string, IconName> = {
+  paper: 'doc',
+  'no-bond': 'shield',
+  local: 'pin-plain',
+  'zensho-c': 'badge',
+  small: 'yen',
+  'no-experience': 'sparkle',
+};
+---
+
+{
+  labels.length > 0 && (
+    <ul class:list={['label-chips', { large }]} aria-label="参加しやすさ">
+      {labels.map((l) => (
+        <li class="label-chip" title={l.rule}>
+          {large && <Icon name={ICONS[l.slug] ?? 'check'} size={15} />}
+          {l.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .large { gap: 8px; }
+  .large .label-chip { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: var(--radius-nav); }
+</style>

@@ -1,0 +1,59 @@
+---
+// ページ送り（docs/design/AfterList.dc.html）。件数が分からない一覧（「◯件以上」）は、次のページまでを出す
+type Props = {
+  page: number;
+  /** 最後のページ。件数が分からないときは hasMore から決める */
+  totalPages?: number;
+  hasMore?: boolean;
+  basePath: string;
+  /** 検索条件など、ページ送りで引き継ぐクエリ（page 以外） */
+  params?: URLSearchParams;
+};
+
+const { page, totalPages, hasMore = false, basePath, params } = Astro.props;
+const last = totalPages ?? (hasMore ? page + 1 : page);
+const href = (p: number) => {
+  const query = new URLSearchParams(params);
+  query.delete('page');
+  if (p > 1) query.set('page', String(p));
+  const qs = query.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
+};
+// 1・…・前後・…・最後（件数が分からないときは最後を出さない）
+const WINDOW = 1;
+const numbers: (number | 'gap')[] = [];
+for (let p = 1; p <= last; p++) {
+  const nearCurrent = Math.abs(p - page) <= WINDOW;
+  const edge = p === 1 || (p === last && totalPages !== undefined);
+  if (nearCurrent || edge) numbers.push(p);
+  else if (numbers.at(-1) !== 'gap') numbers.push('gap');
+}
+if (numbers.at(-1) === 'gap') numbers.pop();
+---
+
+{
+  last > 1 && (
+    <nav class="pagination" aria-label="ページ送り">
+      {page > 1 && <a class="page wide" href={href(page - 1)}>‹ 前へ</a>}
+      {numbers.map((n) =>
+        n === 'gap' ? (
+          <span class="gap" aria-hidden="true">…</span>
+        ) : n === page ? (
+          <a class="page current" href={href(n)} aria-current="page">{n}</a>
+        ) : (
+          <a class="page" href={href(n)}>{n}</a>
+        ),
+      )}
+      {page < last && <a class="page wide" href={href(page + 1)}>次へ ›</a>}
+    </nav>
+  )
+}
+
+<style>
+  .pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
+  .page { min-width: var(--tap); height: var(--tap); border-radius: var(--radius-control); background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .page:hover { color: var(--ink); border-color: var(--line-strong); }
+  .page.wide { padding: 0 16px; }
+  .page.current { background: var(--kaki-strong); border-color: var(--kaki-strong); color: var(--on-kaki); font-weight: 700; }
+  .gap { display: flex; align-items: center; color: var(--muted); padding: 0 4px; }
+</style>

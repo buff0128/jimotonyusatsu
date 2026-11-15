@@ -1,0 +1,84 @@
+---
+// 都道府県の一覧（/ibaraki/list）と、都道府県×種別（/ibaraki/koji）。市区町村・参加しやすさ・業種・締切で絞り込める
+import CaseBrowser from './CaseBrowser.astro';
+import Base from '../layouts/Base.astro';
+import { CATEGORIES, type CategorySlug } from '../lib/categories';
+import { countByTag, getAreaCounts, listCases, listCitiesWithCounts, type Area } from '../lib/db';
+import { todayInJst } from '../lib/format';
+import { describeQuery, isFiltered, readListQuery, savedQueryOf } from '../lib/list-query';
+import { PAGE_SIZE } from '../lib/pagination';
+
+type Props = { pref: Area; category?: { slug: CategorySlug; label: string } };
+
+const { pref, category } = Astro.props;
+const query = readListQuery(Astro.url);
+const cities = await listCitiesWithCounts(pref.lg_code);
+const city = cities.find((c) => c.slug === query.citySlug);
+const [result, counts, tagCounts] = await Promise.all([
+  listCases(
+    {
+      lgCode: pref.lg_code,
+      category: category?.slug,
+      cityCode: city?.code,
+      tag: query.tag?.slug,
+      labels: query.labels.map((l) => l.slug),
+      deadlineFrom: query.open || query.sort === 'deadline' ? todayInJst() : undefined,
+    },
+    { limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE, sort: query.sort },
+  ),
+  getAreaCounts(pref.lg_code),
+  countByTag(pref.lg_code),
+]);
+
+const basePath = category ? `/${pref.slug}/${category.slug}` : `/${pref.slug}/list`;
+// 種別のタブ：絞り込みの条件は引き継ぐ（ページは1に戻す）
+const carried = new URLSearchParams([...Astro.url.searchParams].filter(([key]) => key !== 'page')).toString();
+const tabHref = (path: string) => (carried ? `${path}?${carried}` : path);
+// 見本（AfterList）のタブの順
+const TAB_ORDER = ['koji', 'buppin', 'ekimu'] as const;
+const tabs = [
+  { label: 'すべて', href: tabHref(`/${pref.slug}/list`), current: !category },
+  ...TAB_ORDER.map((slug) => CATEGORIES.find((c) => c.slug === slug)!).map((c) => ({ label: c.label, href: tabHref(`/${pref.slug}/${c.slug}`), current: category?.slug === c.slug })),
+];
+const heading = category ? `${pref.name}の${category.label}の入札情報` : `${pref.name}の入札情報`;
+const conditions = describeQuery(query, city?.name);
+const savedParams = new URLSearchParams(Astro.url.searchParams);
+savedParams.set('pref', pref.slug);
+if (category) savedParams.set('category', category.slug);
+const savedLabel = [pref.name, category?.label, ...conditions].filter(Boolean).join('・');
+---
+
+<Base
+  title={heading}
+  description={`${pref.name}内の官公庁・自治体が公告した${category ? `${category.label}の` : ''}入札の仕事の一覧です。市区町村・業種・参加しやすさで絞り込めます。`}
+  noindex={isFiltered(query)}
+  bare
+>
+  <CaseBrowser
+    crumbs={[{ label: pref.name, href: `/${pref.slug}` }, { label: category ? category.label : '仕事の一覧' }]}
+    heading={heading}
+    lead={`県・市町村・国の機関などが${pref.name}内で公告した入札の仕事`}
+    stats={[
+      { label: '掲載中', n: counts.total },
+      { label: '今週の新着', n: counts.week },
+      { label: '締切まで7日以内', n: counts.due7, soon: true },
+    ]}
+    tabs={tabs}
+    basePath={basePath}
+    query={query}
+    result={result}
+    cities={cities}
+    tagCounts={tagCounts}
+    conditions={conditions}
+    saved={{ query: savedQueryOf(savedParams), label: savedLabel }}
+    emptyHints={{ pref }}
+  >
+    {
+      category && (
+        <p class="note" slot="after-list">
+          ※ 官公需APIで種別が付いていない仕事（未分類）は、種別のタブには含まれません。「すべて」からご覧ください。
+        </p>
+      )
+    }
+  </CaseBrowser>
+</Base>

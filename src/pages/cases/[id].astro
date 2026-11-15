@@ -1,0 +1,613 @@
+---
+// 案件詳細（docs/design/LocalDetail.dc.html）
+// 表示の決まり：API の値はそのまま出す。API が空の項目だけ AI の抽出値で埋め、紫の「AI」の印を付ける
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import CalendarAdd from '../../components/CalendarAdd.astro';
+import CategoryBadge from '../../components/CategoryBadge.astro';
+import FavoriteButton from '../../components/FavoriteButton.astro';
+import Icon from '../../components/Icon.astro';
+import LabelChips from '../../components/LabelChips.astro';
+import SideCaseList from '../../components/SideCaseList.astro';
+import Timeline, { type TimelineStep } from '../../components/Timeline.astro';
+import Base from '../../layouts/Base.astro';
+import { categoryLabel, findCategory } from '../../lib/categories';
+import { getAreaByCode, getCase, getCaseAi, getCaseAwards, getCaseDescription, getCaseTags, listCases, parseAttachments } from '../../lib/db';
+import { nextDeadline, type DeadlineCandidate } from '../../lib/deadlines';
+import { pickFirstGuides } from '../../lib/first-guides';
+import { formatDate, formatFileSize } from '../../lib/format';
+import { listGuides } from '../../lib/guides';
+import { gyoshuLabel } from '../../lib/gyoshu';
+import { caseNoindex } from '../../lib/indexing';
+import { computeLabels } from '../../lib/labels';
+
+const item = await getCase(Astro.params.id ?? '');
+if (!item) return Astro.rewrite('/404');
+
+const [pref, city, ai, tags, description, awards, guides] = await Promise.all([
+  getAreaByCode(item.lg_code),
+  item.city_code ? getAreaByCode(item.city_code) : Promise.resolve(null),
+  getCaseAi(item.id),
+  getCaseTags(item.id),
+  getCaseDescription(item),
+  getCaseAwards(item.id),
+  listGuides(),
+]);
+const extracted = ai?.extracted ?? {};
+const firstTag = tags[0]?.tag;
+// ラベルは抽出値にルールを当てはめて決める（src/lib/labels.ts。D1 の case_labels と同じ関数）
+const labels = computeLabels(extracted);
+
+// 日程：API の値を優先し、無いものは AI の抽出値
+const tenderValue = item.tender_submission_deadline ?? extracted.tender_submission_deadline ?? null;
+const openingValue = item.opening_tenders_event ?? extracted.opening_tenders_event ?? null;
+const timeline: TimelineStep[] = [
+  { key: 'issue', label: '公告', value: item.cft_issue_date, ai: false },
+  ...(extracted.application_deadline ? [{ key: 'application', label: '参加申請', value: extracted.application_deadline, ai: true }] : []),
+  ...(extracted.question_deadline ? [{ key: 'question', label: '質問', value: extracted.question_deadline, ai: true }] : []),
+  { key: 'tender', label: '入札書の提出', value: tenderValue, ai: !item.tender_submission_deadline },
+  { key: 'opening', label: '開札', value: openingValue, ai: !item.opening_tenders_event },
+  ...(item.period_end_time || extracted.performance_period
+    ? [
+        {
+          key: 'period',
+          label: '履行期間・納入期限',
+          value: item.period_end_time,
+          ai: !item.period_end_time,
+          text: item.period_end_time ? undefined : (extracted.performance_period ?? undefined),
+        },
+      ]
+    : []),
+];
+// 右上の「◯◯まで あと N 日」の候補（質問の期限は除く）
+const heroCandidates: DeadlineCandidate[] = [
+  ...(extracted.application_deadline ? [['参加申請', extracted.application_deadline] as DeadlineCandidate] : []),
+  ...(tenderValue ? [['入札書の提出', tenderValue] as DeadlineCandidate] : []),
+  ...(openingValue ? [['開札', openingValue] as DeadlineCandidate] : []),
+];
+const hero = nextDeadline(heroCandidates, Date.now());
+
+// 関連（横の枠。それぞれ最新5件）
+const RELATED_LIMIT = 5;
+const [sameOrg, sameCity, sameTag] = await Promise.all([
+  item.org_id ? listCases({ orgId: item.org_id, excludeId: item.id }, { limit: RELATED_LIMIT, withTotal: false }) : null,
+  item.city_code ? listCases({ cityCode: item.city_code, excludeId: item.id }, { limit: RELATED_LIMIT, withTotal: false }) : null,
+  firstTag ? listCases({ tag: firstTag, lgCode: item.lg_code, excludeId: item.id }, { limit: RELATED_LIMIT, withTotal: false }) : null,
+]);
+
+const attachments = parseAttachments(item.attachments);
+const category = findCategory(item.category ?? extracted.category ?? '');
+const title = extracted.project_name ?? item.project_name;
+
+const NOT_PROVIDED = '公告をご確認ください';
+type Link = { text: string; href?: string };
+// optional：値がなければ行ごと出さない（AI だけが埋める項目・業種）
+type Row = { label: string; value: string | null; links?: Link[]; ai?: boolean; optional?: boolean };
+const apiOrAi = (label: string, apiValue: string | null, aiValue: string | null | undefined): Row =>
+  apiValue ? { label, value: apiValue } : { label, value: aiValue ?? null, ai: Boolean(aiValue) };
+const aiOnly = (label: string, aiValue: string | null | undefined): Row => ({ label, value: aiValue ?? null, ai: Boolean(aiValue), optional: true });
+
+const BOND_LABELS = { exempt: '免除', required: '必要', partial: '一部免除（条件付きを含む）' } as const;
+const LOCAL_LABELS = { city: '市区町村内', prefecture: '都道府県内', region: '地方ブロック内', none: '地域の条件なし' } as const;
+const licenseText = (extracted.licenses ?? []).map((l) => `${l.name}${l.grades?.length ? `（等級 ${l.grades.join('・')}）` : ''}`).join('\n');
+const priceText =
+  typeof extracted.estimated_price === 'number'
+    ? `${extracted.estimated_price.toLocaleString('ja-JP')}円${extracted.estimated_price_note ? `（${extracted.estimated_price_note}）` : ''}`
+    : null;
+const BID_METHOD_LABELS = { electronic: '電子のみ', both: '電子・紙どちらも可', paper: '紙のみ（持参・郵送など）' } as const;
+const prefHref = pref ? `/${pref.slug}` : undefined;
+const cityHref = pref && city ? `/${pref.slug}/${city.slug}` : undefined;
+const placeLinks: Link[] = [
+  ...(item.prefecture_name ? [{ text: item.prefecture_name, href: prefHref }] : []),
+  ...(item.city_name ? [{ text: item.city_name, href: cityHref }] : []),
+];
+const tagHref = (tag: string) => (pref ? `/${pref.slug}/gyoshu/${tag}` : `/gyoshu/${tag}`);
+const categoryHref = pref && category ? `/${pref.slug}/${category.slug}` : undefined;
+const categoryRow: Row = item.category_raw
+  ? { label: '種別', value: item.category_raw, links: categoryHref ? [{ text: item.category_raw, href: categoryHref }] : undefined }
+  : { label: '種別', value: extracted.category ? categoryLabel(extracted.category) : null, ai: Boolean(extracted.category) };
+
+const rows: Row[] = [
+  {
+    label: '発注機関',
+    value: item.organization_name,
+    links: item.org_id && item.organization_name ? [{ text: item.organization_name, href: `/orgs/${item.org_id}` }] : undefined,
+  },
+  { label: '所在地', value: placeLinks.map((l) => l.text).join(' ') || null, links: placeLinks.length ? placeLinks : undefined },
+  categoryRow,
+  {
+    label: '業種',
+    value: tags.length ? tags.map((t) => gyoshuLabel(t.tag)).join('、') : null,
+    links: tags.map((t) => ({ text: gyoshuLabel(t.tag), href: tagHref(t.tag) })),
+    ai: tags.some((t) => t.method === 'ai'),
+    optional: true,
+  },
+  { label: '入札方式', value: item.procedure_type },
+  aiOnly('入札方法（紙・電子）', extracted.bid_method ? BID_METHOD_LABELS[extracted.bid_method] : null),
+  { label: '資格等級', value: item.certification },
+  aiOnly('必要な資格', extracted.qualifications),
+  aiOnly('資格の種類と等級', licenseText || null),
+  aiOnly(
+    '地域要件',
+    extracted.local_requirement
+      ? `${LOCAL_LABELS[extracted.local_requirement]}${extracted.local_requirement_text ? `：${extracted.local_requirement_text}` : ''}`
+      : null,
+  ),
+  aiOnly('実績要件', extracted.experience_required == null ? null : extracted.experience_required ? 'あり' : 'なし'),
+  aiOnly('入札保証金', extracted.bid_bond ? BOND_LABELS[extracted.bid_bond] : null),
+  aiOnly('契約保証金', extracted.contract_bond ? BOND_LABELS[extracted.contract_bond] : null),
+  aiOnly('予定価格', priceText),
+  { label: '公告日', value: formatDate(item.cft_issue_date) },
+  aiOnly('参加申請の期限', formatDate(extracted.application_deadline ?? null)),
+  aiOnly('質問の期限', formatDate(extracted.question_deadline ?? null)),
+  apiOrAi('入札書の提出期限', formatDate(item.tender_submission_deadline), formatDate(extracted.tender_submission_deadline ?? null)),
+  apiOrAi('開札日', formatDate(item.opening_tenders_event), formatDate(extracted.opening_tenders_event ?? null)),
+  apiOrAi('履行期間・納入期限', formatDate(item.period_end_time), extracted.performance_period),
+  apiOrAi('履行場所', item.location, extracted.location),
+].filter((row) => row.value || !row.optional);
+const hasAiRows = rows.some((r) => r.ai);
+
+const crumbs = [
+  ...(pref ? [{ label: pref.name, href: prefHref }] : []),
+  ...(pref && city ? [{ label: `${city.name}の入札`, href: cityHref }] : []),
+  { label: title },
+];
+
+const metaDescription = [
+  item.organization_name,
+  item.cft_issue_date && `${formatDate(item.cft_issue_date)}公告`,
+  `「${title}」の入札情報。日程・参加資格・公式資料へのリンクを掲載しています。`,
+]
+  .filter(Boolean)
+  .join(' ');
+
+const hostOf = (uri: string) => {
+  try {
+    return new URL(uri).hostname;
+  } catch {
+    return '';
+  }
+};
+const fileKind = (uri: string, type?: string | null) => (type ?? uri.match(/\.([a-z0-9]{2,4})(?:$|\?)/i)?.[1] ?? 'WEB').toUpperCase().slice(0, 4);
+const documents = [
+  ...(item.external_document_uri
+    ? [
+        {
+          name: '公告',
+          uri: item.external_document_uri,
+          kind: fileKind(item.external_document_uri, item.file_type),
+          size: formatFileSize(item.file_size),
+        },
+      ]
+    : []),
+  ...attachments.map((a) => ({ name: a.name ?? '添付資料', uri: a.uri, kind: fileKind(a.uri), size: null })),
+];
+const primaryDocument = documents[0];
+const placeName = city?.name ?? pref?.name;
+const pageUrl = new URL(`/cases/${item.id}`, Astro.site ?? Astro.url).href;
+const lineShareUrl = `https://social-plugins.line.me/lineit/share?${new URLSearchParams({ url: pageUrl })}`;
+
+// 初めて参加する人向けの解説記事（src/lib/first-guides.ts）
+const guideTitles = new Map(guides.map((g) => [g.path, g.shortTitle]));
+const firstGuides = pickFirstGuides({ extracted, certification: item.certification, procedureType: item.procedure_type }).filter((g) =>
+  guideTitles.has(g.path),
+);
+
+// 最近見た仕事（このブラウザに記録する。src/scripts/recent-record.ts）
+const recentEntry = {
+  id: item.id,
+  title,
+  place: placeName ?? '',
+  org: item.organization_name ?? '',
+  deadline: tenderValue ?? extracted.application_deadline ?? null,
+};
+---
+
+<Base title={title} description={metaDescription} noindex={caseNoindex({ hasAi: Boolean(ai) })} bare>
+  <main class="container detail">
+    <div class="no-print"><Breadcrumbs items={crumbs} /></div>
+
+    <div class="top">
+      <section class="card hero-card">
+        <div class="tag-row">
+          <CategoryBadge category={category?.slug ?? item.category} href={categoryHref} />
+          {tags.map((t) => <a class="sub-tag" href={tagHref(t.tag)}>{gyoshuLabel(t.tag)}</a>)}
+          {item.cft_issue_date && <span class="new-pill" data-new-issue={item.cft_issue_date} hidden>新着</span>}
+          {item.cft_issue_date && <span class="issue">公告 {formatDate(item.cft_issue_date)}</span>}
+        </div>
+        <h1>{title}</h1>
+        <div class="meta-row">
+          <span class="meta">
+            <Icon name="building" stroke="var(--muted)" />
+            {item.org_id ? <a href={`/orgs/${item.org_id}`}>{item.organization_name}</a> : <span>{item.organization_name}</span>}
+          </span>
+          {
+            placeLinks.length > 0 && (
+              <span class="meta">
+                <Icon name="pin" stroke="var(--muted)" />
+                {placeLinks.map((l, i) => (
+                  <>
+                    {i > 0 && ' '}
+                    {l.href ? <a href={l.href}>{l.text}</a> : l.text}
+                  </>
+                ))}
+              </span>
+            )
+          }
+        </div>
+        {
+          extracted.project_name && (
+            <p class="note corrected">
+              <span class="ai-mark">AI</span>　件名は公告から補正しています。官公需情報ポータルサイト上の件名は「{item.project_name}」です。
+            </p>
+          )
+        }
+        {
+          (labels.length > 0 || item.procedure_type) && (
+            <div class="hero-labels">
+              <LabelChips slugs={labels} large />
+              {item.procedure_type && <span class="procedure">{item.procedure_type}</span>}
+            </div>
+          )
+        }
+        {labels.length > 0 && <p class="note labels-note">ラベルは、公告からAIが読み取った項目に決まったルールを当てはめて表示しています（<a href="/guide/labels">ラベルの基準</a>）。</p>}
+        {
+          firstGuides.length > 0 && (
+            <nav class="first-guides no-print" aria-label="初めて参加するなら">
+              <div class="first-guides-title">初めて参加するなら</div>
+              <ul>
+                {firstGuides.map((g) => (
+                  <li>
+                    <a href={g.path}>{guideTitles.get(g.path)}</a>
+                    <span class="first-guides-reason">{g.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )
+        }
+      </section>
+
+      <aside class="card action-card no-print">
+        <div class="hero-deadline" data-hero-deadline data-deadlines={JSON.stringify(heroCandidates)} data-state={hero.state}>
+          <div class="when-open">
+            <div class="hero-label" data-hero-label>{hero.state === 'open' ? `${hero.label}まで` : ''}</div>
+            <div class="hero-days">
+              <span class="unit">あと</span><span class="days" data-hero-days>{hero.state === 'open' ? hero.days : ''}</span><span class="unit" data-hero-unit>日</span>
+            </div>
+          </div>
+          <div class="when-closed">
+            <div class="hero-label">締切</div>
+            <div class="hero-text">受付は終了しました</div>
+          </div>
+          <div class="when-unknown">
+            <div class="hero-label">締切</div>
+            <div class="hero-text">公告でご確認ください</div>
+          </div>
+          <div class="hero-date" data-hero-date>{hero.state === 'open' ? formatDate(hero.value) : ''}</div>
+        </div>
+        {
+          heroCandidates.map(([label, value]) => (
+            <div data-hero-cal={label} hidden={hero.state !== 'open' || hero.label !== label}>
+              <CalendarAdd block event={{ uid: `${item.id}-hero-${label}`, title: `${label}：${title}`, date: value, url: pageUrl }} />
+            </div>
+          ))
+        }
+        {
+          primaryDocument ? (
+            <a class="btn btn-primary btn-block" href={primaryDocument.uri} rel="noopener nofollow" target="_blank">
+              公告・資料を見る
+              <Icon name="external" />
+            </a>
+          ) : (
+            <a class="btn btn-primary btn-block" href="#documents">公告・資料について</a>
+          )
+        }
+        <FavoriteButton kind="case" id={item.id} block offText="お気に入りに追加" onText="お気に入りに登録済み" />
+        <div class="share" aria-label="社内で共有する">
+          <button type="button" class="btn share-btn" data-copy-url={pageUrl}>
+            <Icon name="link" />
+            <span data-copy-text>リンクをコピー</span>
+          </button>
+          <a class="btn share-btn" href={lineShareUrl} target="_blank" rel="noopener nofollow">
+            <Icon name="chat" />
+            LINEで送る
+          </a>
+          <button type="button" class="btn share-btn" data-print>
+            <Icon name="print" />
+            印刷
+          </button>
+        </div>
+        <p class="note">日程は公告をもとに表示しています。参加の前に必ず公告でご確認ください。</p>
+      </aside>
+    </div>
+
+    <Timeline steps={timeline} calendar={{ caseId: item.id, title, url: pageUrl }} />
+
+    <div class="columns">
+      <div class="main-col">
+        {
+          ai?.summary && (
+            <section class="card section">
+              <div class="section-heading">
+                <h2>この案件の要約</h2>
+                <span class="ai-badge">AIによる要約</span>
+              </div>
+              <p class="summary">{ai.summary}</p>
+              {extracted.tips && (
+                <div class="tips">
+                  <Icon name="bulb" size={22} stroke="var(--kaki-text)" />
+                  <div>
+                    <div class="tips-title">参加のポイント</div>
+                    <div class="tips-text">{extracted.tips}</div>
+                  </div>
+                </div>
+              )}
+              <p class="note">公告・仕様書をもとにAIが作成しています。誤りを含む可能性があります。正式な内容は公告でご確認ください。</p>
+            </section>
+          )
+        }
+
+        <section class="card section no-print">
+          <h2>案件の概要</h2>
+          <dl class="facts">
+            {
+              rows.map((row) => (
+                <div class="fact">
+                  <dt>
+                    {row.label}
+                    {row.ai && <span class="ai-mark"> AI</span>}
+                  </dt>
+                  <dd class:list={{ muted: !row.value }}>
+                    {row.links && row.links.length > 0
+                      ? row.links.map((l, i) => (
+                          <>
+                            {i > 0 && (row.label === '業種' ? '／' : ' ')}
+                            {l.href ? <a href={l.href}>{l.text}</a> : l.text}
+                          </>
+                        ))
+                      : (row.value ?? NOT_PROVIDED)}
+                  </dd>
+                </div>
+              ))
+            }
+          </dl>
+          {
+            hasAiRows && (
+              <p class="note">
+                <span class="ai-mark">AI</span>
+                　は、官公需情報ポータルサイトで提供されていない項目を、公告・添付資料からAIが読み取ったものです（業種はAIが分類）。誤りを含む可能性があります。
+              </p>
+            )
+          }
+        </section>
+
+        {
+          awards.length > 0 && (
+            <section class="card section no-print">
+              <h2>落札結果</h2>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>落札者</th><th>落札金額</th><th>落札日</th></tr>
+                  </thead>
+                  <tbody>
+                    {awards.map((a) => (
+                      <tr>
+                        <td>{a.winner_name ?? '—'}</td>
+                        <td>{a.award_price != null ? `${a.award_price.toLocaleString('ja-JP')}円` : '—'}</td>
+                        <td>{formatDate(a.award_date) ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p class="note">
+                出典：<a href="https://www.p-portal.go.jp/pps-web-biz/UAB02/OAB0201" rel="noopener">調達ポータル</a
+                >（落札実績オープンデータ、調達案件番号 {awards[0].procurement_item_no}）を加工して作成。予定価格・落札率は公表データに含まれないため掲載していません。
+              </p>
+            </section>
+          )
+        }
+
+        <section class="card section print-only print-urls">
+          <h2>公告・このページ</h2>
+          {primaryDocument && <p>公告：{primaryDocument.uri}</p>}
+          <p>このページ：{pageUrl}</p>
+          <p class="note">日程・要約は公告をもとにしています（AIによる読み取りを含みます）。参加の前に必ず公告でご確認ください。出典：官公需情報ポータルサイト</p>
+        </section>
+
+        <section class="card section no-print" id="documents">
+          <h2>公告・資料</h2>
+          {
+            documents.length === 0 ? (
+              <p class="muted">公式資料へのリンクは提供されていません。発注機関のホームページでご確認ください。</p>
+            ) : (
+              <div class="docs">
+                {documents.map((d) => (
+                  <a class="doc" href={d.uri} rel="noopener nofollow" target="_blank">
+                    <span class="doc-kind">{d.kind}</span>
+                    <span class="doc-body">
+                      <span class="doc-name">{d.name}</span>
+                      <span class="doc-host">{[hostOf(d.uri), d.size].filter(Boolean).join('・')}</span>
+                    </span>
+                    <Icon name="external" stroke="var(--muted)" />
+                  </a>
+                ))}
+              </div>
+            )
+          }
+          {
+            description && (
+              <details class="full-text">
+                <summary>公告文の全文を表示</summary>
+                <p class="note">官公需情報ポータルサイトに掲載された公告文をそのまま掲載しています。</p>
+                <div class="description">{description}</div>
+              </details>
+            )
+          }
+          <p class="note source">
+            出典：<a href="https://www.kkj.go.jp/s/" rel="noopener">官公需情報ポータルサイト</a>（{formatDate(item.fetched_at.slice(0, 10))}取得）
+          </p>
+        </section>
+      </div>
+
+      <aside class="side-col no-print">
+        {
+          item.organization_name && (
+            <section class="side-card">
+              <div class="side-label">発注機関</div>
+              {item.org_id ? (
+                <a class="org-name" href={`/orgs/${item.org_id}`}>{item.organization_name}</a>
+              ) : (
+                <span class="org-name">{item.organization_name}</span>
+              )}
+              {sameOrg && sameOrg.cases.length > 0 && (
+                <>
+                  <div class="side-sub">この機関の入札</div>
+                  <SideCaseList cases={sameOrg.cases.slice(0, 3)} showOrg={false} />
+                </>
+              )}
+              {item.org_id && <FavoriteButton kind="org" id={item.org_id} block offText="この機関をお気に入りに追加" onText="この機関を登録済み" />}
+            </section>
+          )
+        }
+        {
+          sameCity && sameCity.cases.length > 0 && (
+            <section class="side-card">
+              <h2>{placeName}のほかの仕事</h2>
+              <SideCaseList cases={sameCity.cases} />
+              {cityHref && <a class="side-more" href={cityHref}>すべて見る　›</a>}
+            </section>
+          )
+        }
+        {
+          sameTag && sameTag.cases.length > 0 && firstTag && (
+            <section class="side-card">
+              <h2>{pref?.name ?? ''}の{gyoshuLabel(firstTag)}の仕事</h2>
+              <SideCaseList cases={sameTag.cases} />
+              <a class="side-more" href={tagHref(firstTag)}>すべて見る　›</a>
+            </section>
+          )
+        }
+      </aside>
+    </div>
+  </main>
+  <div data-recent-record={JSON.stringify(recentEntry)} hidden></div>
+</Base>
+
+<script>
+  import '../../scripts/calendar';
+  import '../../scripts/recent-record';
+  import '../../scripts/share';
+</script>
+
+<style>
+  .detail { padding-top: 16px; padding-bottom: 64px; }
+  .detail > :global(.breadcrumbs) { margin-bottom: 16px; }
+  .top { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; }
+  .hero-card { flex: 999 1 626px; min-width: 0; padding: 28px 32px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .issue { font-size: 12px; color: var(--muted); }
+  h1 { font-size: 28px; line-height: 1.45; font-weight: 700; margin: 12px 0 10px; letter-spacing: 0.01em; overflow-wrap: anywhere; }
+  .meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: 14px; color: var(--ink-sub); }
+  .meta { display: flex; align-items: center; gap: 6px; }
+  .meta :global(svg) { flex: none; }
+  .corrected { margin: 10px 0 0; }
+  .hero-labels { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .procedure { display: flex; align-items: center; background: var(--ground); color: var(--ink-sub); font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: var(--radius-nav); border: 1px solid var(--line); }
+  .labels-note { margin: 10px 0 0; }
+  .first-guides { margin-top: 20px; padding: 14px 18px; border: 1px solid var(--line); border-radius: var(--radius-box); background: var(--surface-soft); }
+  .first-guides-title { font-size: 13px; font-weight: 700; color: var(--ink-heading); }
+  .first-guides ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+  .first-guides li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 6px 0; border-top: 1px solid var(--line-faint); }
+  .first-guides li:first-child { border-top: 0; }
+  .first-guides a { font-weight: 700; font-size: 14px; text-decoration: underline; min-height: 28px; display: inline-flex; align-items: center; }
+  .first-guides-reason { font-size: 12px; color: var(--muted); }
+
+  .action-card { flex: 1 1 350px; min-width: 0; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .action-card .note { margin: 0; }
+  .share { display: flex; flex-wrap: wrap; gap: 8px; }
+  .share-btn { flex: 1 1 auto; padding: 0 12px; gap: 6px; font-size: 13px; white-space: nowrap; }
+  .share-btn :global(svg) { flex: none; }
+  .hero-deadline { background: var(--kaki-soft); border-radius: var(--radius-box); padding: 16px 18px; color: var(--kaki-text); }
+  .hero-deadline:not([data-state='open']) { background: var(--surface-soft); color: var(--ink-sub); border: 1px solid var(--line); }
+  .hero-deadline > div:not(.hero-date) { display: none; }
+  .hero-deadline:not([data-state='open']) .hero-date { display: none; }
+  .hero-deadline[data-state='open'] .when-open,
+  .hero-deadline[data-state='closed'] .when-closed,
+  .hero-deadline[data-state='unknown'] .when-unknown { display: block; }
+  .hero-label { font-size: 13px; font-weight: 700; }
+  .hero-days { display: flex; align-items: baseline; gap: 6px; }
+  .hero-days .unit { font-size: 15px; font-weight: 700; }
+  .hero-days .days { font-size: 44px; font-weight: 900; line-height: 1.1; }
+  .hero-text { font-size: 18px; font-weight: 900; line-height: 1.5; }
+  .hero-date { font-size: 14px; color: var(--ink-sub); }
+
+  .columns { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; align-items: flex-start; }
+  .main-col { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .section { padding: 28px 32px; }
+  .section h2 { font-size: 18px; margin: 0 0 16px; }
+  .section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .section-heading h2 { margin: 0; }
+  .summary { margin: 0 0 16px; }
+  .section > .note { margin: 14px 0 0; }
+  .tips { margin-top: 20px; background: var(--label-bg); border-radius: var(--radius-box); padding: 16px 18px; display: flex; gap: 12px; }
+  .tips :global(svg) { flex: none; margin-top: 2px; }
+  .tips-title { font-weight: 700; color: var(--ink-heading); margin-bottom: 2px; }
+  .tips-text { font-size: 14px; color: var(--ink); }
+
+  .facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
+  .fact { padding: 12px 0; border-bottom: 1px solid var(--line-faint); min-width: 0; }
+  .fact dt { font-size: 12px; color: var(--muted); }
+  .fact dd { margin: 2px 0 0; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .fact dd.muted { font-weight: 400; }
+  .table-wrap { overflow-x: auto; }
+  .data-table { margin: 0; }
+
+  .docs { display: flex; flex-direction: column; gap: 8px; }
+  .doc { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-control); text-decoration: none; color: var(--ink); }
+  .doc:hover { color: var(--ink); border-color: var(--line-strong); }
+  .doc :global(svg) { flex: none; }
+  .doc-kind { width: 36px; height: 36px; border-radius: var(--radius-nav); background: var(--file-bg); color: var(--file-text); font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; flex: none; }
+  .doc-body { flex: 1; min-width: 0; }
+  .doc-name { display: block; font-weight: 700; overflow-wrap: anywhere; }
+  .doc-host { display: block; font-size: 12px; color: var(--muted); }
+  .full-text { margin-top: 16px; border-top: 1px solid var(--line-faint); padding-top: 12px; }
+  .full-text summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--kaki-text); padding: 8px 0; }
+  .full-text .note { margin: 4px 0 8px; }
+  .description { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--ink-sub); background: var(--surface-soft); border-radius: var(--radius-control); padding: 16px; max-height: 60vh; overflow-y: auto; }
+  .source { margin-top: 14px; }
+
+  .side-col { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .side-col .side-card > h2 { font-size: 15px; }
+  .side-label { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .org-name { display: block; font-weight: 700; font-size: 16px; margin: 4px 0 12px; text-decoration: none; color: var(--ink); overflow-wrap: anywhere; }
+  a.org-name:hover { color: var(--link-hover); text-decoration: underline; }
+  .side-sub { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .side-card :global(.fav-btn) { margin-top: 8px; }
+  .side-more { display: block; padding-top: 10px; border-top: 1px solid var(--line-faint); font-size: 14px; font-weight: 700; text-decoration: none; }
+
+  .print-urls p { margin: 0 0 4px; overflow-wrap: anywhere; font-size: 13px; }
+  @media print {
+    .detail { padding: 0; }
+    .top, .columns { display: block; }
+    .hero-card, .section, .main-col > * { padding: 12px 0; border: 0; margin: 0; }
+    .main-col { gap: 0; }
+    .tips { break-inside: avoid; margin-top: 10px; padding: 10px 12px; }
+    h1 { font-size: 20px; margin: 6px 0; }
+    .hero-labels { margin-top: 8px; }
+    .labels-note { display: none; }
+    .summary { margin-bottom: 8px; font-size: 13px; }
+    .section h2 { font-size: 15px; margin-bottom: 6px; }
+    .print-only.print-urls { display: block; }
+  }
+
+  @media (max-width: 760px) {
+    .facts { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .hero-card, .section { padding: 20px; }
+    .action-card { padding: 20px; }
+    h1 { font-size: 22px; }
+  }
+</style>

@@ -1,0 +1,28 @@
+---
+// 案件カードの一覧。受付終了のカードはブラウザ側で一覧の下にまとめる（data-closed-last。src/scripts/countdown.ts）
+import type { CaseSummary } from '../lib/db';
+import CaseCard from './CaseCard.astro';
+
+type Props = { cases: CaseSummary[]; emptyMessage?: string };
+
+const { cases, emptyMessage = 'まだ貼り出されている仕事はありません。' } = Astro.props;
+---
+
+{
+  cases.length === 0 ? (
+    <p class="empty">{emptyMessage}</p>
+  ) : (
+    <ul class="case-list" data-closed-last>
+      {cases.map((c) => (
+        <li data-case-item>
+          <CaseCard item={c} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .case-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .empty { margin: 0; padding: 24px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius-card); color: var(--muted); text-align: center; }
+</style>

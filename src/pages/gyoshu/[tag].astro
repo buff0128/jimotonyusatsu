@@ -1,0 +1,71 @@
+---
+// 全国 × 業種（/gyoshu/seiso）
+import AreaTagInsightSection from '../../components/AreaTagInsightSection.astro';
+import CaseBrowser from '../../components/CaseBrowser.astro';
+import GyoshuNote from '../../components/GyoshuNote.astro';
+import InsightCard from '../../components/InsightCard.astro';
+import PrefGrid from '../../components/PrefGrid.astro';
+import Base from '../../layouts/Base.astro';
+import { countTagByPref, existingOrgIds, getAreaTagInsight, listCases, listPrefsWithCounts } from '../../lib/db';
+import { todayInJst } from '../../lib/format';
+import { findGyoshu } from '../../lib/gyoshu';
+import { hasEnoughData } from '../../lib/insights';
+import { describeQuery, isFiltered, readListQuery, savedQueryOf } from '../../lib/list-query';
+import { PAGE_SIZE } from '../../lib/pagination';
+
+const gyoshu = findGyoshu(Astro.params.tag ?? '');
+if (!gyoshu) return Astro.rewrite('/404');
+
+const query = readListQuery(Astro.url);
+const filtered = isFiltered(query);
+const [result, prefs, prefCounts, insight] = await Promise.all([
+  listCases(
+    {
+      tag: gyoshu.slug,
+      labels: query.labels.map((l) => l.slug),
+      deadlineFrom: query.open || query.sort === 'deadline' ? todayInJst() : undefined,
+    },
+    { limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE, sort: query.sort },
+  ),
+  listPrefsWithCounts(),
+  countTagByPref(gyoshu.slug),
+  getAreaTagInsight('', gyoshu.slug),
+]);
+const linkableOrgs = await existingOrgIds(insight?.top_orgs.map((o) => o.org_id) ?? []);
+const thin = !hasEnoughData(insight);
+const heading = `${gyoshu.label}の入札情報（全国）`;
+const basePath = `/gyoshu/${gyoshu.slug}`;
+const conditions = describeQuery(query);
+const showIntro = query.page === 1 && !filtered;
+---
+
+<Base
+  noindex={filtered || thin}
+  title={heading}
+  description={`全国の${gyoshu.label}の入札の仕事の一覧です。${gyoshu.description}の仕事を都道府県別にも探せます。`}
+  bare
+>
+  <CaseBrowser
+    crumbs={[{ label: '業種から探す', href: '/gyoshu' }, { label: gyoshu.label }]}
+    heading={heading}
+    lead={`${gyoshu.description}の仕事`}
+    basePath={basePath}
+    query={query}
+    result={result}
+    showTags={false}
+    conditions={conditions}
+    saved={{ query: savedQueryOf(Astro.url.searchParams, { tag: gyoshu.slug }), label: [gyoshu.label, ...conditions].join('・') }}
+    emptyHints={{}}
+  >
+    {
+      showIntro && (
+        <InsightCard slot="intro">
+          <AreaTagInsightSection areaName="全国" gyoshuLabel={gyoshu.label} insight={insight} linkableOrgs={linkableOrgs} />
+          <h2>都道府県で絞り込む</h2>
+          <PrefGrid prefs={prefs} counts={prefCounts} hrefSuffix={`/gyoshu/${gyoshu.slug}`} />
+          <GyoshuNote />
+        </InsightCard>
+      )
+    }
+  </CaseBrowser>
+</Base>

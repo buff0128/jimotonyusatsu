@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import { listGuides } from '../../lib/guides';
+
+export const prerender = true;
+
+const guides = await listGuides();
+---
+
+<Base
+  title="入札の始め方"
+  description="官公庁・自治体の入札に初めて参加する方向けに、始め方、参加資格、公告の読み方、入札方式を順番に解説します。"
+  breadcrumbs={[{ label: '入札の始め方' }]}
+>
+  <h1 class="page-title">入札が初めての方へ</h1>
+  <p class="page-lead">地元の仕事を受けるまでの流れを、順番に解説しています。</p>
+  <ol class="guide-list">
+    {
+      guides.map((g, i) => (
+        <li>
+          <a href={g.path} class="guide-card">
+            <span class="step">STEP {i + 1}</span>
+            <span class="title">{g.shortTitle}</span>
+            <span class="desc">{g.description}</span>
+          </a>
+        </li>
+      ))
+    }
+    <li>
+      <a href="/guide/labels" class="guide-card">
+        <span class="step">参考</span>
+        <span class="title">参加しやすさのラベルの基準</span>
+        <span class="desc">「紙で入札できる」「保証金が免除」などのラベルの付け方です。</span>
+      </a>
+    </li>
+  </ol>
+</Base>
+
+<style>
+  .guide-list { list-style: none; padding: 0; margin: 24px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .guide-card { display: block; height: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 18px; text-decoration: none; color: var(--ink); }
+  .guide-card:hover { color: var(--ink); border-color: var(--line-strong); }
+  .step { display: block; font-size: 12px; color: var(--kaki-text); font-weight: 700; }
+  .title { display: block; font-weight: 700; margin-top: 4px; }
+  .desc { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
+</style>

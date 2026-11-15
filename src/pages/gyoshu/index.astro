@@ -1,0 +1,45 @@
+---
+import GyoshuIcon from '../../components/GyoshuIcon.astro';
+import GyoshuNote from '../../components/GyoshuNote.astro';
+import Base from '../../layouts/Base.astro';
+import { countByTag } from '../../lib/db';
+import { GYOSHU } from '../../lib/gyoshu';
+
+const counts = await countByTag();
+---
+
+<Base
+  title="業種から入札情報を探す"
+  description="清掃、警備、印刷、システム開発、調査・計画、土木工事など、業種ごとに全国の入札の仕事を探せます。"
+  breadcrumbs={[{ label: '業種から探す' }]}
+>
+  <h1 class="page-title">業種から探す</h1>
+  <p class="page-lead">業種を選ぶと、全国の仕事と、都道府県ごとの件数が見られます。</p>
+  <ul class="gyoshu-grid">
+    {
+      GYOSHU.map((g) => (
+        <li>
+          <a href={`/gyoshu/${g.slug}`} class="gyoshu-card">
+            <span class="name">
+              <span class="label"><GyoshuIcon slug={g.slug} size={20} />{g.label}</span>
+              <span class="n">{(counts.get(g.slug) ?? 0).toLocaleString('ja-JP')}件</span>
+            </span>
+            <span class="desc">{g.description}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  <GyoshuNote />
+</Base>
+
+<style>
+  .gyoshu-grid { list-style: none; padding: 0; margin: 24px 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .gyoshu-card { display: block; height: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 16px 18px; text-decoration: none; color: var(--ink); }
+  .gyoshu-card:hover { color: var(--ink); border-color: var(--line-strong); }
+  .name { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+  .label { display: inline-flex; align-items: center; gap: 8px; }
+  .label :global(.gyoshu-icon) { color: var(--kaki-text); flex: none; }
+  .n { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .desc { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
+</style>

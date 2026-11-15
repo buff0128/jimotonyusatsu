@@ -1,0 +1,208 @@
+---
+import '../styles/global.css';
+import Breadcrumbs, { type Crumb } from '../components/Breadcrumbs.astro';
+import Icon from '../components/Icon.astro';
+import { FIXED_PAGES, SITE_NAME, STAGING_NOINDEX } from '../lib/site';
+
+/**
+ * ヘッダーの形（docs/design の見本に合わせる）
+ *   home    : トップ。ロゴ・メニュー・お気に入り（検索窓なし）
+ *   local   : 都道府県・市区町村ページ。ロゴ・地元ピル・その地域の検索窓・お気に入り
+ *   default : それ以外。ロゴ・地元ピル・検索窓（検索ボタンつき）・メニュー・お気に入り
+ */
+export type HeaderVariant = 'home' | 'local' | 'default';
+/** local のときの検索の範囲（検索窓の案内文と、検索に渡す条件） */
+export type SearchScope = { name: string; prefSlug: string; citySlug?: string };
+
+type Props = {
+  title: string;
+  description?: string;
+  /** パンくず（plain のときだけ Base が出す。bare のページは自分で置く） */
+  breadcrumbs?: Crumb[];
+  /** 検索結果など、本番でも検索エンジンに載せないページ */
+  noindex?: boolean;
+  /** ヘッダーの検索欄に入れておく語 */
+  searchQuery?: string;
+  header?: HeaderVariant;
+  searchScope?: SearchScope;
+  /** true：ページ側で <main> と余白を組む。false：Base が本文用の枠（パンくず＋container）を出す */
+  bare?: boolean;
+  /** <link rel="canonical">（トップのように、クエリ付きで開かれるページ） */
+  canonical?: string;
+};
+
+const {
+  title,
+  description,
+  breadcrumbs = [],
+  noindex = false,
+  searchQuery = '',
+  header = 'default',
+  searchScope,
+  bare = false,
+  canonical,
+} = Astro.props;
+const fullTitle = title === SITE_NAME ? SITE_NAME : `${title}｜${SITE_NAME}`;
+const site = Astro.site ?? Astro.url;
+const pageUrl = new URL(Astro.url.pathname, site).href;
+const ogImage = new URL('/og-image.png', site).href;
+const searchPlaceholder = header === 'local' && searchScope ? `${searchScope.name}の仕事を検索` : '件名・発注機関・業種で検索';
+const NAV = [
+  { href: '/prefectures', label: header === 'home' ? '地域から探す' : '都道府県' },
+  { href: '/gyoshu', label: header === 'home' ? '業種から探す' : '業種' },
+  { href: '/guide/getting-started', label: '入札の始め方' },
+];
+const FOOTER_LINKS = [{ href: '/guide', label: '入札の始め方' }, ...FIXED_PAGES];
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {(STAGING_NOINDEX || noindex) && <meta name="robots" content="noindex, nofollow" />}
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    {canonical && <link rel="canonical" href={new URL(canonical, site).href} />}
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#faf7f2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+    />
+    <meta property="og:type" content={Astro.url.pathname === '/' ? 'website' : 'article'} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:title" content={fullTitle} />
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <slot name="head" />
+  </head>
+  <body>
+    <header class:list={['site-header', `site-header--${header}`, 'no-print']}>
+      <div class="container header-inner">
+        <a class="logo" href="/" aria-label={`${SITE_NAME} トップへ`}>
+          <img src="/logo-horizontal.svg" alt={SITE_NAME} width="115" height="36" />
+        </a>
+        {
+          header !== 'home' && (
+            <a class="local-pill" href="/?home=1" data-local-pill hidden>
+              <Icon name="pin" size={15} strokeWidth={2.2} />
+              <span data-local-name />
+              <span class="change">（変更）</span>
+            </a>
+          )
+        }
+        {
+          header !== 'home' && (
+            <form class="header-search" action="/search" method="get" role="search">
+              <Icon name="search" size={18} stroke="var(--muted)" />
+              <label for="site-q" class="sr-only">{searchPlaceholder}</label>
+              <input id="site-q" type="search" name="q" value={searchQuery} placeholder={searchPlaceholder} />
+              {header === 'local' && searchScope && <input type="hidden" name="pref" value={searchScope.prefSlug} />}
+              {header === 'local' && searchScope?.citySlug && <input type="hidden" name="city" value={searchScope.citySlug} />}
+              <button type="submit" class:list={{ 'sr-only': header === 'local' }}>検索</button>
+            </form>
+          )
+        }
+        <nav class="header-nav" aria-label="メイン">
+          {header !== 'local' && NAV.map((n) => <a class="nav-link" href={n.href}>{n.label}</a>)}
+          <a class="nav-link fav-link" href="/favorites">
+            <Icon name="star" class="icon-star" />
+            お気に入り<span class="fav-count" data-fav-count hidden />
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    {
+      bare ? (
+        <slot />
+      ) : (
+        <main class="container plain-main">
+          {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
+          <slot />
+        </main>
+      )
+    }
+
+    <footer class="site-footer no-print">
+      <div class="container footer-inner">
+        <span class="footer-name">{SITE_NAME}</span>
+        {FOOTER_LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+      </div>
+      <div class="container">
+        <p class="footer-note">
+          入札情報は<a href="https://www.kkj.go.jp/s/" rel="noopener">官公需情報ポータルサイト</a
+          >の検索APIを利用して取得しています。AIによる要約・抽出を含むページがあります。参加の際は、必ず発注機関の公告・仕様書で正式な情報をご確認ください。
+        </p>
+      </div>
+    </footer>
+    <script>
+      import '../scripts/favorites-ui';
+      import '../scripts/local-area';
+      import '../scripts/countdown';
+    </script>
+  </body>
+</html>
+
+<style>
+  .site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .header-inner { padding-top: 12px; padding-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+  .site-header--local .header-inner { gap: 12px 20px; }
+  .logo { display: flex; align-items: center; }
+  .logo img { height: 36px; width: auto; display: block; }
+
+  .local-pill { display: flex; align-items: center; gap: 6px; background: var(--kaki-soft); color: var(--kaki-text); font-weight: 700; font-size: 14px; padding: 8px 14px; border-radius: var(--radius-pill); text-decoration: none; line-height: 1.5; }
+  .local-pill:hover { color: var(--kaki-text); }
+  .local-pill .change { font-weight: 500; color: var(--muted); }
+
+  .header-search { flex: 1 1 320px; max-width: 520px; display: flex; align-items: center; gap: 8px; background: var(--ground); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0 6px 0 16px; height: var(--tap); }
+  .site-header--local .header-search { flex-basis: 260px; max-width: 420px; }
+  .header-search svg { flex: none; }
+  .header-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: 14px; color: var(--ink); outline: none; }
+  .header-search input::placeholder { color: var(--muted); }
+  .header-search:focus-within { border-color: var(--line-strong); }
+  .header-search button:not(.sr-only) { height: 34px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--kaki-strong); color: var(--on-kaki); font-size: 14px; font-weight: 700; cursor: pointer; }
+
+  .header-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: auto; }
+  .nav-link { padding: 10px 12px; border-radius: var(--radius-nav); color: var(--ink); text-decoration: none; font-weight: 500; font-size: 14px; line-height: 1.5; }
+  .nav-link:hover { color: var(--ink); background: var(--ground); }
+  .fav-link { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--line); }
+  .fav-count { background: var(--kaki-strong); color: var(--on-kaki); border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; padding: 0 7px; line-height: 18px; }
+
+  @media (max-width: 720px) {
+    .header-inner { gap: 10px 12px; }
+    .logo img { height: 30px; }
+    .header-nav { order: 1; gap: 0; }
+    .local-pill { order: 2; font-size: 13px; padding: 6px 12px; }
+    .header-search, .site-header--local .header-search { order: 3; flex-basis: 100%; max-width: none; }
+    .site-header--default .nav-link:not(.fav-link) { padding: 10px 8px; }
+  }
+  @media (max-width: 480px) {
+    /* スマホでは「都道府県・業種・入札の始め方」をフッターに任せ、ロゴとお気に入りを1行に収める */
+    .site-header--default .nav-link:not(.fav-link) { display: none; }
+    .site-header--home .nav-link:not(.fav-link) { padding: 10px 6px; font-size: 13px; }
+    .site-header--home .nav-link[href^='/guide'] { display: none; }
+  }
+
+  .plain-main { padding-top: 24px; padding-bottom: 64px; }
+  .plain-main > :global(.breadcrumbs) { margin-bottom: 12px; }
+
+  .site-footer { background: var(--board); color: var(--ink-heading); border-top: 1px solid var(--board-line); }
+  .footer-inner { padding-top: 28px; padding-bottom: 8px; display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; font-size: 13px; }
+  .footer-inner a { color: var(--label-text); text-decoration: none; }
+  .footer-inner a:hover { color: var(--ink-heading); text-decoration: underline; }
+  .footer-name { font-family: var(--font-heading); font-weight: 800; font-size: 16px; color: var(--ink-heading); }
+  .footer-note { margin: 8px 0 0; padding-bottom: 28px; font-size: 12px; color: var(--label-text); }
+  .footer-note a { color: var(--label-text); }
+</style>

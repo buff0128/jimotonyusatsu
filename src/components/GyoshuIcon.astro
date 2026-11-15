@@ -1,0 +1,61 @@
+---
+// 業種ごとの小さな線画アイコン（src/lib/gyoshu.ts の slug と1対1。docs/design/DESIGN.md「業種のアイコン」）
+// このサイト用に描いた単色の線画。色は currentColor、太さ 1.75、24px の枠。飾りなので読み上げない
+type Props = { slug: string; size?: number; class?: string };
+
+const PATHS: Record<string, string> = {
+  // ── 工事 ──
+  doboku: '<path d="M8 21l2.5-18M16 21l-2.5-18"/><path d="M12 6v2M12 11v2M12 16v2.5"/><path d="M3 21h18"/>',
+  kenchiku: '<path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/>',
+  denki: '<path d="M13 3L5.5 13H11l-1 8 7.5-10H12z"/>',
+  'setsubi-koji': '<path d="M3 7h9a5 5 0 0 1 5 5v9"/><path d="M3 11h8a2 2 0 0 1 2 2v8"/><path d="M3 5v8M11 21h8"/>',
+  zoen: '<path d="M12 21v-6"/><path d="M12 15c-3.6 0-6-2.4-6-5.5S8.6 4 12 3c3.4 1 6 3.4 6 6.5S15.6 15 12 15z"/><path d="M8 21h8"/>',
+  // ── 役務 ──
+  'sokuryo-sekkei': '<circle cx="12" cy="5" r="2"/><path d="M12 7L6 21M12 7l6 14M12 7v14"/>',
+  'chosa-keikaku': '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 17v-3M12 17v-6M15 17v-4"/>',
+  system: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/><path d="M9.5 8.5L7.5 10l2 1.5M14.5 8.5l2 1.5-2 1.5"/>',
+  seiso: '<path d="M5 10h14l-1.6 10H6.6z"/><path d="M8 10a4 4 0 0 1 8 0"/><circle cx="18.5" cy="4.5" r="1.5"/><circle cx="15" cy="3.5" r="0.8"/>',
+  keibi: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  'hoshu-tenken': '<path d="M14.5 4.2a4.2 4.2 0 0 0-5.2 5.4L4 15l3 3 5.4-5.3a4.2 4.2 0 0 0 5.4-5.2l-2.6 2.6-2.3-.5-.5-2.3z"/>',
+  'shisetsu-kanri': '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>',
+  haikibutsu: '<path d="M4 7h16M9 7V4h6v3"/><path d="M6 7l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/>',
+  unso: '<path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3.5V16h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  insatsu: '<path d="M8 3h10v14H8z"/><path d="M5 6v15h11"/><path d="M11 7h4M11 10h4M11 13h2"/>',
+  kouhou: '<path d="M4 10v4h3l8 5V5l-8 5z"/><path d="M18 9a4 4 0 0 1 0 6"/>',
+  'itaku-jimu': '<path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19c0 1.5-2 2-5 2"/>',
+  kenshu: '<rect x="3" y="4" width="18" height="11" rx="1"/><path d="M12 15v3M8 21l4-3 4 3"/><path d="M7 11l3-3 3 2 4-4"/>',
+  chintai: '<path d="M4.5 11a7.5 7.5 0 0 1 13.2-4.6M19.5 13a7.5 7.5 0 0 1-13.2 4.6"/><path d="M18 3v4h-4M6 21v-4h4"/>',
+  // ── 物品 ──
+  jimu: '<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>',
+  'it-kiki': '<rect x="5" y="5" width="14" height="10" rx="1"/><path d="M2.5 19h19l-2-4h-15z"/>',
+  iryo: '<path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>',
+  shokuhin: '<path d="M4 12h16a8 7 0 0 1-16 0z"/><path d="M9 4c-1 1.5 1 2.5 0 4.5M13 4c-1 1.5 1 2.5 0 4.5"/>',
+  nenryo: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M9.5 15a2.5 2.5 0 0 0 2.5 2.5"/>',
+  sharyo: '<path d="M4 16v-4l2.5-5h11l2.5 5v4z"/><path d="M4 12h16"/><circle cx="8" cy="17.5" r="1.8"/><circle cx="16" cy="17.5" r="1.8"/>',
+  kiki: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  seifuku: '<path d="M8.5 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5.5-3a3.5 3.5 0 0 1-7 0z"/>',
+  tosho: '<path d="M3 5.5c3-1 6-1 9 1 3-2 6-2 9-1v13.5c-3-1-6-1-9 1-3-2-6-2-9-1z"/><path d="M12 6.5V20"/>',
+  bosai: '<rect x="8" y="8" width="8" height="13" rx="2"/><path d="M12 8V5h4l2 2M10 5h2"/><path d="M10.5 13h3"/>',
+};
+
+const { slug, size = 18, class: className } = Astro.props;
+const path = PATHS[slug];
+---
+
+{
+  path && (
+    <svg
+      class:list={['gyoshu-icon', className]}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      set:html={path}
+    />
+  )
+}

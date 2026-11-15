@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>地元感版 トップ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
+<style>
+body{margin:0}
+a{color:#2A5D8F}a:hover{color:#1E3A5F}
+h1,h2,h3{font-family:'M PLUS Rounded 1c','Noto Sans JP',sans-serif}
+</style>
+</helmet>
+<div style="font-family: 'Noto Sans JP', system-ui, sans-serif; color: #1F2933; background: #FAF7F2; line-height: 1.7; min-height: 100%; font-size: 15px">
+
+  <header style="background: #ffffff; border-bottom: 1px solid #E8E1D6">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px">
+      <a href="#" aria-label="じもと入札 トップへ" style="display: flex; align-items: center"><img src="/_blob/84745cec25c7278b61b4ffeffdd929a3" alt="じもと入札" style="height: 36px; width: auto; display: block"></a>
+      <nav aria-label="メイン" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: auto">
+        <a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1F2933; text-decoration: none; font-weight: 500; font-size: 14px">地域から探す</a>
+        <a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1F2933; text-decoration: none; font-weight: 500; font-size: 14px">業種から探す</a>
+        <a href="#" style="padding: 10px 12px; border-radius: 8px; color: #1F2933; text-decoration: none; font-weight: 500; font-size: 14px">入札の始め方</a>
+        <a href="#" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; color: #1F2933; text-decoration: none; font-weight: 500; font-size: 14px; border: 1px solid #E8E1D6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2501C" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>お気に入り</a>
+      </nav>
+    </div>
+  </header>
+
+  <section style="max-width: 1200px; margin: 0 auto; padding: 56px 24px 48px; display: flex; flex-wrap: wrap; gap: 40px; align-items: center">
+    <div style="flex: 999 1 520px; min-width: 0">
+      <span style="display: inline-block; background: #FDF0E8; color: #B84A18; font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 999px">登録なし・完全無料</span>
+      <h1 style="font-size: 44px; line-height: 1.35; margin: 16px 0 12px; color: #2B2622; font-weight: 800">あなたの町の入札を、<br>毎朝ひとめで。</h1>
+      <p style="margin: 0 0 28px; font-size: 17px; color: #3F4752">国・県・市町村が地元で出した仕事を、市区町村ごとにまとめています。<br>まずは、あなたの地元を選んでください。</p>
+      <form style="background: #ffffff; border: 1px solid #E8E1D6; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; box-shadow: 0 2px 6px rgba(60,40,20,0.06)">
+        <div style="flex: 1 1 160px"><label for="pref" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px">都道府県</label><select id="pref" style="width: 100%; height: 48px; border: 1px solid #D9CFBF; border-radius: 10px; padding: 0 12px; font: inherit; background: #ffffff"><option>茨城県</option></select></div>
+        <div style="flex: 1 1 160px"><label for="city" style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px">市区町村</label><select id="city" style="width: 100%; height: 48px; border: 1px solid #D9CFBF; border-radius: 10px; padding: 0 12px; font: inherit; background: #ffffff"><option>水戸市</option></select></div>
+        <a href="LocalCity.dc.html" style="flex: 1 1 200px; height: 48px; border-radius: 10px; background: #C2501C; color: #ffffff; text-decoration: none; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px">この町の仕事を見る<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </form>
+      <p style="margin: 10px 0 0; font-size: 12px; color: #5E6670">選んだ地域はこのブラウザに保存され、次回から自動で開きます。</p>
+    </div>
+
+    <div aria-label="掲示板のイメージ" style="flex: 1 1 360px; background: #EFE6D6; border-radius: 22px; padding: 28px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #E2D6C1">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; color: #2B2622; font-size: 18px">水戸市の掲示板</span><span style="font-size: 13px; color: #5E6670">今週の新着 [n]件</span></div>
+      <div style="background: #ffffff; border-radius: 10px; padding: 14px 16px 14px 34px; position: relative; box-shadow: 0 1px 3px rgba(60,40,20,0.08)"><span style="position: absolute; left: 12px; top: 18px; width: 12px; height: 12px; border-radius: 999px; background: #E0652B"></span><div style="font-size: 12px; color: #5E6670">役務・調査・計画　あと4日</div><div style="font-weight: 700; font-size: 14px">茨城県地域交通データ更新等業務</div></div>
+      <div style="background: #ffffff; border-radius: 10px; padding: 14px 16px 14px 34px; position: relative; box-shadow: 0 1px 3px rgba(60,40,20,0.08); margin-left: 18px"><span style="position: absolute; left: 12px; top: 18px; width: 12px; height: 12px; border-radius: 999px; background: #E0652B"></span><div style="font-size: 12px; color: #5E6670">役務・清掃　あと[n]日</div><div style="font-weight: 700; font-size: 14px">[清掃の案件]</div></div>
+      <div style="background: #ffffff; border-radius: 10px; padding: 14px 16px 14px 34px; position: relative; box-shadow: 0 1px 3px rgba(60,40,20,0.08)"><span style="position: absolute; left: 12px; top: 18px; width: 12px; height: 12px; border-radius: 999px; background: #2A5D8F"></span><div style="font-size: 12px; color: #5E6670">物品・印刷　あと[n]日</div><div style="font-weight: 700; font-size: 14px">[印刷の案件]</div></div>
+    </div>
+  </section>
+
+  <section style="background: #ffffff; border-top: 1px solid #E8E1D6; border-bottom: 1px solid #E8E1D6">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 40px 24px">
+      <h2 style="font-size: 24px; margin: 0 0 6px; color: #2B2622">地域から探す</h2>
+      <p style="margin: 0 0 20px; color: #5E6670">都道府県を選ぶと、市区町村ごとの入札が見られます。</p>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">北海道・東北</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">北海道</a><a href="#">青森</a><a href="#">岩手</a><a href="#">宮城</a><a href="#">秋田</a><a href="#">山形</a><a href="#">福島</a></div></div>
+        <div style="border: 2px solid #E0652B; border-radius: 14px; padding: 15px; background: #FDF0E8"><h3 style="font-size: 15px; margin: 0 0 10px">関東</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#" style="font-weight: 700">茨城</a><a href="#">栃木</a><a href="#">群馬</a><a href="#">埼玉</a><a href="#">千葉</a><a href="#">東京</a><a href="#">神奈川</a></div></div>
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">中部</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">新潟</a><a href="#">富山</a><a href="#">石川</a><a href="#">福井</a><a href="#">山梨</a><a href="#">長野</a><a href="#">岐阜</a><a href="#">静岡</a><a href="#">愛知</a></div></div>
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">近畿</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">三重</a><a href="#">滋賀</a><a href="#">京都</a><a href="#">大阪</a><a href="#">兵庫</a><a href="#">奈良</a><a href="#">和歌山</a></div></div>
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">中国</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">鳥取</a><a href="#">島根</a><a href="#">岡山</a><a href="#">広島</a><a href="#">山口</a></div></div>
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">四国</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">徳島</a><a href="#">香川</a><a href="#">愛媛</a><a href="#">高知</a></div></div>
+        <div style="border: 1px solid #E8E1D6; border-radius: 14px; padding: 16px; background: #FBF8F3"><h3 style="font-size: 15px; margin: 0 0 10px">九州・沖縄</h3><div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px"><a href="#">福岡</a><a href="#">佐賀</a><a href="#">長崎</a><a href="#">熊本</a><a href="#">大分</a><a href="#">宮崎</a><a href="#">鹿児島</a><a href="#">沖縄</a></div></div>
+        <div style="border: 1px dashed #D9CFBF; border-radius: 14px; padding: 16px; display: flex; align-items: center; justify-content: center"><a href="#" style="font-weight: 700; text-decoration: none">業種から探す　›</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width: 1200px; margin: 0 auto; padding: 40px 24px 56px">
+    <h2 style="font-size: 24px; margin: 0 0 6px; color: #2B2622">入札が初めての方へ</h2>
+    <p style="margin: 0 0 20px; color: #5E6670">地元の仕事を受けるまでの流れを、順番に解説しています。</p>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <a href="#" style="background: #ffffff; border: 1px solid #E8E1D6; border-radius: 14px; padding: 18px; text-decoration: none; color: #1F2933"><span style="display: block; font-size: 12px; color: #B84A18; font-weight: 700">STEP 1</span><span style="display: block; font-weight: 700; margin-top: 4px">入札の始め方</span><span style="display: block; font-size: 13px; color: #5E6670; margin-top: 4px">資格の取得から契約までの流れ</span></a>
+      <a href="#" style="background: #ffffff; border: 1px solid #E8E1D6; border-radius: 14px; padding: 18px; text-decoration: none; color: #1F2933"><span style="display: block; font-size: 12px; color: #B84A18; font-weight: 700">STEP 2</span><span style="display: block; font-weight: 700; margin-top: 4px">入札参加資格の取り方</span><span style="display: block; font-size: 13px; color: #5E6670; margin-top: 4px">国と自治体の資格の違い</span></a>
+      <a href="#" style="background: #ffffff; border: 1px solid #E8E1D6; border-radius: 14px; padding: 18px; text-decoration: none; color: #1F2933"><span style="display: block; font-size: 12px; color: #B84A18; font-weight: 700">STEP 3</span><span style="display: block; font-weight: 700; margin-top: 4px">公告の読み方と用語集</span><span style="display: block; font-size: 13px; color: #5E6670; margin-top: 4px">開札日・予定価格などの意味</span></a>
+      <a href="#" style="background: #ffffff; border: 1px solid #E8E1D6; border-radius: 14px; padding: 18px; text-decoration: none; color: #1F2933"><span style="display: block; font-size: 12px; color: #B84A18; font-weight: 700">STEP 4</span><span style="display: block; font-weight: 700; margin-top: 4px">入札方式の違い</span><span style="display: block; font-size: 13px; color: #5E6670; margin-top: 4px">一般競争・随意契約・プロポーザル</span></a>
+    </div>
+  </section>
+
+  <footer style="background: #EFE6D6; color: #2B2622; border-top: 1px solid #E2D6C1">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; font-size: 13px">
+      <span style="font-family: 'M PLUS Rounded 1c', sans-serif; font-weight: 800; font-size: 16px; color: #2B2622">じもと入札</span>
+      <a href="#" style="color: #4A3F35; text-decoration: none">運営者情報</a>
+      <a href="#" style="color: #4A3F35; text-decoration: none">出典・免責事項</a>
+      <a href="#" style="color: #4A3F35; text-decoration: none">プライバシーポリシー</a>
+      <a href="#" style="color: #4A3F35; text-decoration: none">お問い合わせ</a>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

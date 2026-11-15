@@ -1,0 +1,241 @@
+---
+// 都道府県・市区町村のページ（docs/design/LocalCity.dc.html）
+//   今日の一言 → 件数のタイル → 今週のねらい目（掲示板）→ 締切が近い仕事 → 新しく貼り出された仕事 → 業種から探す ／ 横：よく発注する機関・となりの市町村（都道府県は市区町村の一覧）
+// 件数はすべて同期のときに計算した値（case_counts）を読むだけ。「◯月◯日時点」を添える
+import Breadcrumbs from './Breadcrumbs.astro';
+import CaseList from './CaseList.astro';
+import FavoriteButton from './FavoriteButton.astro';
+import GyoshuIcon from './GyoshuIcon.astro';
+import Icon from './Icon.astro';
+import PickupBoard from './PickupBoard.astro';
+import RecentViewed from './RecentViewed.astro';
+import Base from '../layouts/Base.astro';
+import {
+  countByTag,
+  countTagByCity,
+  getAreaCounts,
+  getDataVersion,
+  listCases,
+  listCitiesWithCounts,
+  listTopOrgs,
+  listTopOrgsInCity,
+  type Area,
+} from '../lib/db';
+import { todayInJst } from '../lib/format';
+import { GYOSHU } from '../lib/gyoshu';
+
+type Props = { pref: Area; city: Area | null };
+
+const { pref, city } = Astro.props;
+const name = city?.name ?? pref.name;
+const DUE_LIMIT = 5;
+const NEW_LIMIT = 10;
+const ORG_LIMIT = 6;
+const NEIGHBOR_LIMIT = 8;
+const PICKUP_LIMIT = 6;
+const scope = { lgCode: pref.lg_code, cityCode: city?.code };
+
+const [counts, version, dueSoon, newest, tagCounts, orgs, cities, pickup] = await Promise.all([
+  getAreaCounts(pref.lg_code, city?.code),
+  getDataVersion(),
+  listCases({ ...scope, deadlineFrom: todayInJst() }, { limit: DUE_LIMIT, sort: 'deadline', withTotal: false }),
+  listCases(scope, { limit: NEW_LIMIT + DUE_LIMIT, withTotal: false }),
+  city ? countTagByCity(pref.lg_code, city.code) : countByTag(pref.lg_code),
+  city ? listTopOrgsInCity(pref.lg_code, city.code, ORG_LIMIT) : listTopOrgs(pref.lg_code, ORG_LIMIT),
+  listCitiesWithCounts(pref.lg_code),
+  // 今週のねらい目：参加しやすさのラベルが付いた締切前の仕事（期限のインデックスから読む）
+  listCases({ ...scope, deadlineFrom: todayInJst(), labeled: true }, { limit: PICKUP_LIMIT, sort: 'deadline', withTotal: false }),
+]);
+
+// 「締切が近い仕事」には「今週のねらい目」に出したものを、「新しく貼り出された仕事」にはその両方を重ねて出さない
+const pickupIds = new Set(pickup.cases.map((c) => c.id));
+const dueCases = dueSoon.cases.filter((c) => !pickupIds.has(c.id));
+const dueIds = new Set([...pickupIds, ...dueCases.map((c) => c.id)]);
+const newCases = newest.cases.filter((c) => !dueIds.has(c.id)).slice(0, NEW_LIMIT);
+// 隣接の市町村のデータは持っていないので、同じ都道府県で件数の多い市町村で代用する（docs/LOG_2026-11-05.md）
+const neighbors = city
+  ? cities
+      .filter((c) => c.code !== city.code)
+      .sort((a, b) => b.case_count - a.case_count)
+      .slice(0, NEIGHBOR_LIMIT)
+  : cities;
+const tags = GYOSHU.filter((g) => (tagCounts.get(g.slug) ?? 0) > 0).sort((a, b) => (tagCounts.get(b.slug) ?? 0) - (tagCounts.get(a.slug) ?? 0));
+const listPath = `/${pref.slug}/list`;
+const cityQuery = city ? `city=${city.slug}` : '';
+const withQuery = (...parts: string[]) => {
+  const qs = parts.filter(Boolean).join('&');
+  return qs ? `${listPath}?${qs}` : listPath;
+};
+const tagHref = (tag: string) => (city ? withQuery(cityQuery, `tag=${tag}`) : `/${pref.slug}/gyoshu/${tag}`);
+const asOf = version === '0' ? null : new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric' }).format(new Date(version));
+const savedQuery = city ? `city=${city.slug}&pref=${pref.slug}` : `pref=${pref.slug}`;
+const lead = city
+  ? `国・${pref.name}・${city.name}などが、${city.name}内で出した仕事をまとめています。`
+  : `国・${pref.name}・県内の市町村などが、${pref.name}内で出した仕事をまとめています。`;
+const crumbs = city ? [{ label: pref.name, href: `/${pref.slug}` }, { label: city.name }] : [{ label: pref.name }];
+---
+
+<Base
+  title={`${city ? `${pref.name}${city.name}` : pref.name}の入札情報`}
+  description={`${lead}現在${counts.total}件。締切が近い仕事、よく発注する機関、業種から探せます。`}
+  header="local"
+  searchScope={{ name, prefSlug: pref.slug, citySlug: city?.slug }}
+  bare
+>
+  <section class="container intro">
+    <Breadcrumbs items={crumbs} />
+    <div class="title-row">
+      <div>
+        <h1 class="page-title">{name}の入札</h1>
+        <p class="page-lead">{lead}</p>
+      </div>
+      <FavoriteButton kind="search" id={savedQuery} label={`${name}の仕事`} offText={`${name}の新着をお気に入りに保存`} onText={`${name}の新着を保存済み`} />
+    </div>
+    <p class="today-line">
+      <span data-today-date></span>{name}の掲示板です。{
+        counts.week > 0 ? `今週は${counts.week.toLocaleString('ja-JP')}件の仕事が新しく貼り出されました。` : '今週は、新しく貼り出された仕事はまだありません。'
+      }
+    </p>
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile-label">掲載中の仕事</div>
+        <div class="tile-number"><span class="tile-n" data-count-up={counts.total}>{counts.total.toLocaleString('ja-JP')}</span><span>件</span></div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">今週新しく出た仕事</div>
+        <div class="tile-number"><span class="tile-n" data-count-up={counts.week}>{counts.week.toLocaleString('ja-JP')}</span><span>件</span></div>
+      </div>
+      <div class="tile tile-soon">
+        <div class="tile-label">締切まで7日以内</div>
+        <div class="tile-number"><span class="tile-n" data-count-up={counts.due7}>{counts.due7.toLocaleString('ja-JP')}</span><span>件</span></div>
+      </div>
+    </div>
+    {asOf && <p class="note tiles-note">件数は{asOf}時点です。締切は公告から読み取れたものだけを数えています。</p>}
+  </section>
+
+  <main class="container layout">
+    <div class="main-col">
+      <PickupBoard
+        cases={pickup.cases}
+        title="今週のねらい目"
+        lead={`${name}の、紙で出せる・保証金がいらないなど、はじめてでも出しやすい仕事です。`}
+        moreHref={withQuery(cityQuery, 'sort=deadline')}
+      />
+      {
+        dueCases.length > 0 && (
+          <section class="block">
+            <div class="section-head">
+              <h2>締切が近い仕事</h2>
+              <a class="more-link" href={withQuery(cityQuery, 'sort=deadline')}>すべて見る　›</a>
+            </div>
+            <CaseList cases={dueCases} />
+          </section>
+        )
+      }
+      <section class="block">
+        <div class="section-head">
+          <h2>新しく貼り出された仕事</h2>
+          <a class="more-link" href={withQuery(cityQuery)}>すべて見る　›</a>
+        </div>
+        <CaseList cases={newCases} emptyMessage={`${name}の掲示板には、まだ仕事が貼り出されていません。`} />
+      </section>
+      {
+        tags.length > 0 && (
+          <section class="block">
+            <h2 class="section-title">業種から探す</h2>
+            <ul class="pill-row">
+              {tags.map((g) => (
+                <li>
+                  <a class="pill-link gyoshu-pill" href={tagHref(g.slug)}>
+                    <GyoshuIcon slug={g.slug} />
+                    {g.label} <span class="n">{tagCounts.get(g.slug)}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </div>
+
+    <aside class="side-col">
+      <RecentViewed />
+      {
+        orgs.length > 0 && (
+          <section class="side-card">
+            <h2>{name}でよく発注する機関</h2>
+            {orgs.map((o) => (
+              <a class="side-list-link" href={`/orgs/${o.org_id}`}>
+                {o.organization_name}
+                <span class="n">{o.case_count}件</span>
+              </a>
+            ))}
+          </section>
+        )
+      }
+      {
+        neighbors.length > 0 && (
+          <section class="side-card">
+            <h2>{city ? 'となりの市町村' : '市区町村から探す'}</h2>
+            {city && <p class="note side-note">{pref.name}で仕事の多い市町村です。</p>}
+            <ul class="pill-row">
+              {neighbors.map((c) => (
+                <li>
+                  <a class="pill-soft" href={`/${pref.slug}/${c.slug}`}>
+                    {c.name}
+                    {!city && <span class="muted"> {c.case_count}</span>}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+      <section class="side-card">
+        <h2>{name}の仕事を絞り込む</h2>
+        <p class="side-text">種別・参加しやすさ・業種で絞り込んだり、締切の近い順に並べたりできます。</p>
+        <a class="btn btn-block" href={withQuery(cityQuery)}>
+          <Icon name="search" stroke="var(--kaki-strong)" />
+          {name}の仕事の一覧へ
+        </a>
+      </section>
+    </aside>
+  </main>
+</Base>
+
+<script>
+  import '../scripts/area-motion';
+</script>
+
+<style>
+  .intro { padding-top: 32px; padding-bottom: 8px; }
+  .title-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px; margin-top: 8px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 22px; }
+  .tile-label { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .tile-number { font-family: var(--font-heading); font-size: 34px; font-weight: 800; color: var(--ink-heading); line-height: 1.3; }
+  .tile-number span:not(.tile-n) { font-size: 16px; }
+  .tile-soon { background: var(--kaki-soft); border-color: var(--kaki-line); }
+  .tile-soon .tile-label, .tile-soon .tile-number { color: var(--kaki-text); }
+  .tiles-note { margin: 8px 0 0; }
+  .today-line { margin: 16px 0 0; font-size: 15px; color: var(--ink-sub); }
+  .gyoshu-pill { display: inline-flex; align-items: center; gap: 6px; }
+  .gyoshu-pill :global(.gyoshu-icon) { color: var(--kaki-text); flex: none; }
+
+  .layout { padding-top: 24px; padding-bottom: 64px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .main-col { flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 32px; }
+  .block { display: flex; flex-direction: column; gap: 12px; }
+  .side-col { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .side-card h2 { margin-bottom: 12px; }
+  .side-note { margin: -6px 0 10px; }
+  .side-text { margin: 0 0 12px; font-size: 14px; color: var(--ink-sub); }
+
+  @media (max-width: 600px) {
+    .intro { padding-top: 20px; }
+    .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .tile { padding: 12px; border-radius: var(--radius-box); }
+    .tile-label { font-size: 11px; line-height: 1.4; min-height: 2.8em; }
+    .tile-number { font-size: 24px; }
+    .tile-number span:not(.tile-n) { font-size: 13px; }
+  }
+</style>

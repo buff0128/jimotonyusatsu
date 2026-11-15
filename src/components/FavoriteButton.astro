@@ -1,0 +1,53 @@
+---
+// お気に入りの登録・解除ボタン。状態の反映と保存は src/scripts/favorites-ui.ts（Base で読み込み）
+//   icon   : 案件カードの右側に置く 44px の ☆ だけのボタン
+//   button : ☆＋文言のボタン（block で横幅いっぱい）
+import Icon from './Icon.astro';
+
+type Props = {
+  kind: 'case' | 'org' | 'search';
+  id: string;
+  /** 検索条件の表示名 */
+  label?: string;
+  variant?: 'icon' | 'button';
+  block?: boolean;
+  offText?: string;
+  onText?: string;
+};
+
+const { kind, id, label, variant = 'button', block = false, offText = 'お気に入りに追加', onText = 'お気に入りに登録済み' } = Astro.props;
+const icon = variant === 'icon';
+---
+
+<button
+  type="button"
+  class:list={['fav-btn', icon ? 'fav-btn--icon' : 'btn', { 'btn-block': block }]}
+  data-fav-kind={kind}
+  data-fav-id={id}
+  data-fav-label={label}
+  data-fav-off-text={offText}
+  data-fav-on-text={onText}
+  aria-pressed="false"
+  aria-label={icon ? 'お気に入りに追加' : undefined}
+  title="お気に入りに登録"
+>
+  <Icon name="star" size={icon ? 18 : 17} class="fav-star" />{!icon && <span data-fav-text>{offText}</span>}
+</button>
+
+<style>
+  .fav-btn { cursor: pointer; }
+  .fav-btn :global(.fav-star) { stroke: var(--kaki-strong); flex: none; }
+  .fav-btn--icon { width: var(--tap); height: var(--tap); border-radius: var(--radius-control); border: 1px solid var(--line-strong); background: var(--surface); display: flex; align-items: center; justify-content: center; padding: 0; }
+  .fav-btn--icon :global(.fav-star) { stroke: var(--muted); }
+  .fav-btn[aria-pressed='true'] { border-color: var(--kaki-line); background: var(--kaki-soft); }
+  .fav-btn[aria-pressed='true'] :global(.fav-star) { fill: var(--kaki-strong); stroke: var(--kaki-strong); }
+  .fav-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+  @media (prefers-reduced-motion: no-preference) {
+    .fav-btn.is-pinning :global(.fav-star) { animation: pin-in 0.32s cubic-bezier(0.3, 1.4, 0.6, 1); transform-origin: 50% 90%; }
+  }
+  @keyframes pin-in {
+    0% { transform: translateY(-7px) scale(1.25); }
+    60% { transform: translateY(1px) scale(0.92); }
+    100% { transform: translateY(0) scale(1); }
+  }
+</style>

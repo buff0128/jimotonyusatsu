@@ -1,0 +1,46 @@
+---
+// 地方ごとの都道府県（件数つき）。トップの「地域から探す」と同じ見た目
+import type { Area } from '../lib/db';
+import { groupByRegion } from '../lib/regions';
+
+type Props = { prefs: (Area & { case_count: number })[]; hrefSuffix?: string; counts?: Map<string, number> };
+
+// hrefSuffix: 「/gyoshu/seiso」のように都道府県ページの下へ飛ばすとき。counts を渡すとその件数を出す
+const { prefs, hrefSuffix = '', counts } = Astro.props;
+const regions = groupByRegion(prefs);
+---
+
+<div class="region-grid">
+  {
+    regions.map((region) => (
+      <div class="region">
+        <h3>{region.name}</h3>
+        <ul class="region-prefs">
+          {region.prefs.map((p) => {
+            const n = counts ? (counts.get(p.code) ?? 0) : p.case_count;
+            return (
+              <li>
+                {n > 0 ? (
+                  <a href={`/${p.slug}${hrefSuffix}`}>
+                    {p.name}
+                    <span class="n">{n}</span>
+                  </a>
+                ) : (
+                  <span class="muted">{p.name}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .region-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .region { border: 1px solid var(--line); border-radius: var(--radius-card); padding: 16px; background: var(--surface-soft); }
+  .region h3 { font-size: 15px; margin: 0 0 10px; }
+  .region-prefs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  .n { color: var(--muted); font-size: 12px; margin-left: 4px; }
+</style>

@@ -1,0 +1,28 @@
+---
+// 「参加しやすさ」のラベルの基準（src/lib/labels.ts から作る。説明の正本は docs/LABELS.md）
+import Base from '../../layouts/Base.astro';
+import { LABELS } from '../../lib/labels';
+
+export const prerender = true;
+---
+
+<Base
+  title="参加しやすさのラベルの基準"
+  description="仕事のページに表示している「紙で入札できる」「保証金が免除」などのラベルを、どのような基準で付けているかの説明です。"
+  breadcrumbs={[{ label: '入札の始め方', href: '/guide' }, { label: 'ラベルの基準' }]}
+>
+  <article class="prose">
+  <h1>参加しやすさのラベルの基準</h1>
+  <p>
+    仕事のページのラベルは、公告や添付資料からAIが読み取った項目（入札方法、保証金、地域要件、資格、実績要件、予定価格）に、次の決まったルールを当てはめて表示しています。AIがラベルを直接判定しているわけではありません。
+  </p>
+  <p>
+    公告をAIで読んだ仕事にだけ付きます。読み取りに誤りがあると、ラベルも誤ることがあります。参加の前に、必ず公告・入札説明書の原本をご確認ください。
+  </p>
+  <table class="data-table">
+    <thead><tr><th>ラベル</th><th>付ける条件</th></tr></thead>
+    <tbody>{LABELS.map((l) => <tr><td>{l.label}</td><td>{l.rule}</td></tr>)}</tbody>
+  </table>
+  <p><a href="/search">ラベルで仕事を絞り込む　›</a></p>
+  </article>
+</Base>

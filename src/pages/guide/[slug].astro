@@ -1,0 +1,22 @@
+---
+// 解説記事（docs/content/guide/*.md。URL は frontmatter の path）
+import { getCollection } from 'astro:content';
+import MarkdownPage from '../../layouts/MarkdownPage.astro';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const entries = await getCollection('pages', (e) => e.data.path.startsWith('/guide/'));
+  return entries.map((e) => ({ params: { slug: e.data.path.slice('/guide/'.length) }, props: { path: e.data.path } }));
+}
+
+const { path } = Astro.props;
+---
+
+<MarkdownPage path={path} parents={[{ label: '入札の始め方', href: '/guide' }]}>
+  <p class="back"><a href="/guide">‹ 入札の始め方の一覧へ</a></p>
+</MarkdownPage>
+
+<style>
+  .back { margin-top: 32px; }
+</style>

@@ -1,0 +1,75 @@
+---
+// 都道府県 × 業種（/ibaraki/gyoshu/seiso）
+import AreaTagInsightSection from '../../../components/AreaTagInsightSection.astro';
+import CaseBrowser from '../../../components/CaseBrowser.astro';
+import GyoshuNote from '../../../components/GyoshuNote.astro';
+import InsightCard from '../../../components/InsightCard.astro';
+import Base from '../../../layouts/Base.astro';
+import { existingOrgIds, getAreaTagInsight, getPrefBySlug, listCases, listCitiesWithCounts } from '../../../lib/db';
+import { todayInJst } from '../../../lib/format';
+import { findGyoshu } from '../../../lib/gyoshu';
+import { hasEnoughData } from '../../../lib/insights';
+import { describeQuery, isFiltered, readListQuery, savedQueryOf } from '../../../lib/list-query';
+import { PAGE_SIZE } from '../../../lib/pagination';
+
+const [pref, gyoshu] = [await getPrefBySlug(Astro.params.pref ?? ''), findGyoshu(Astro.params.tag ?? '')];
+if (!pref || !gyoshu) return Astro.rewrite('/404');
+
+const query = readListQuery(Astro.url);
+const filtered = isFiltered(query);
+const cities = await listCitiesWithCounts(pref.lg_code);
+const city = cities.find((c) => c.slug === query.citySlug);
+const [result, insight] = await Promise.all([
+  listCases(
+    {
+      lgCode: pref.lg_code,
+      tag: gyoshu.slug,
+      cityCode: city?.code,
+      labels: query.labels.map((l) => l.slug),
+      deadlineFrom: query.open || query.sort === 'deadline' ? todayInJst() : undefined,
+    },
+    { limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE, sort: query.sort },
+  ),
+  getAreaTagInsight(pref.lg_code, gyoshu.slug),
+]);
+const linkableOrgs = await existingOrgIds(insight?.top_orgs.map((o) => o.org_id) ?? []);
+// 統計が出せない（年間5件未満）地域×業種のページは noindex
+const thin = !hasEnoughData(insight);
+const heading = `${pref.name}の${gyoshu.label}の入札情報`;
+const basePath = `/${pref.slug}/gyoshu/${gyoshu.slug}`;
+const conditions = describeQuery(query, city?.name);
+---
+
+<Base
+  noindex={filtered || thin}
+  title={heading}
+  description={`${pref.name}の${gyoshu.label}の入札の仕事の一覧です。${gyoshu.description}の仕事を掲載しています。`}
+  bare
+>
+  <CaseBrowser
+    crumbs={[{ label: pref.name, href: `/${pref.slug}` }, { label: gyoshu.label }]}
+    heading={heading}
+    lead={`${gyoshu.description}の仕事。`}
+    basePath={basePath}
+    query={query}
+    result={result}
+    cities={cities}
+    showTags={false}
+    conditions={conditions}
+    saved={{
+      query: savedQueryOf(Astro.url.searchParams, { pref: pref.slug, tag: gyoshu.slug }),
+      label: [pref.name, gyoshu.label, ...conditions].join('・'),
+    }}
+    emptyHints={{ pref }}
+  >
+    {
+      query.page === 1 && !filtered && (
+        <InsightCard slot="intro">
+          <AreaTagInsightSection areaName={pref.name} gyoshuLabel={gyoshu.label} insight={insight} linkableOrgs={linkableOrgs} />
+          <p><a href={`/gyoshu/${gyoshu.slug}`}>全国の{gyoshu.label}の仕事を見る　›</a></p>
+          <GyoshuNote />
+        </InsightCard>
+      )
+    }
+  </CaseBrowser>
+</Base>

@@ -1,0 +1,107 @@
+---
+// 日程の時系列（docs/design/LocalDetail.dc.html「日程」）。公告 → 参加申請 → 質問 → 入札書の提出 → 開札 → 履行期限
+// 済んだ段階・次の段階はブラウザで決め直す（src/scripts/countdown.ts の data-timeline）
+// 日付の分かる段階（公告を除く）には「カレンダーに追加」を付ける。済んだ段階では隠す
+import CalendarAdd from './CalendarAdd.astro';
+import Icon from './Icon.astro';
+import { daysLeft, deadlineTime, leftText } from '../lib/deadlines';
+import { formatDate } from '../lib/format';
+
+export type TimelineStep = { key: string; label: string; value: string | null; ai: boolean; text?: string };
+type Props = {
+  steps: TimelineStep[];
+  /** カレンダーの予定に使う（案件ID・件名・案件ページの URL） */
+  calendar: { caseId: string; title: string; url: string };
+};
+
+const { steps: input, calendar } = Astro.props;
+const now = Date.now();
+// 日付の順に並べる（公告によっては質問の期限が参加申請より前など、段階の順と日付の順が違う）。
+// 日付の無い段階は、直前の段階の位置に置いたままにする
+let lastTime = -Infinity;
+const steps = input
+  .map((s, i) => {
+    if (s.value && !Number.isNaN(deadlineTime(s.value))) lastTime = deadlineTime(s.value);
+    return { s, i, time: lastTime };
+  })
+  .sort((a, b) => a.time - b.time || a.i - b.i)
+  .map(({ s }) => s);
+const nextIndex = steps.findIndex((s) => s.value && deadlineTime(s.value) >= now);
+const state = (s: TimelineStep, i: number) => {
+  if (!s.value) return 'unknown';
+  if (deadlineTime(s.value) < now) return 'done';
+  return i === nextIndex ? 'next' : 'future';
+};
+const hasAi = steps.some((s) => s.value && s.ai);
+---
+
+<section class="card timeline-card" aria-label="日程">
+  <h2>日程</h2>
+  <ol class="timeline" data-timeline style={`--steps: ${steps.length}`}>
+    {
+      steps.map((s, i) => {
+        const st = state(s, i);
+        return (
+          <li class:list={['step', { done: st === 'done', next: st === 'next' }]} data-step-date={s.value ?? undefined}>
+            <div class="track" aria-hidden="true">
+              <span class="dot">
+                <Icon name="check" size={14} strokeWidth={3} stroke="var(--on-kaki)" />
+              </span>
+              {i < steps.length - 1 && <span class="bar" />}
+            </div>
+            <div class="step-label">
+              {s.label}
+              <span data-step-left>{st === 'next' && s.value ? `　${leftText(daysLeft(deadlineTime(s.value), now))}` : ''}</span>
+              {s.value && s.ai && <span class="ai-mark"> AI</span>}
+            </div>
+            <div class:list={['step-date', { muted: !s.value && !s.text }]}>{s.value ? formatDate(s.value) : (s.text ?? '公告で確認')}</div>
+            {s.value && s.key !== 'issue' && (
+              <CalendarAdd event={{ uid: `${calendar.caseId}-${s.key}`, title: `${s.label}：${calendar.title}`, date: s.value, url: calendar.url }} />
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+  {hasAi && <p class="note"><span class="ai-mark">AI</span>　は公告からAIが読み取った日付です。参加の前に必ず公告でご確認ください。</p>}
+</section>
+
+<style>
+  .timeline-card { padding: 24px 32px; margin-top: 20px; }
+  h2 { font-size: 16px; margin: 0 0 18px; }
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--steps), minmax(0, 1fr)); gap: 12px; }
+  .step { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .track { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 24px; height: 24px; border-radius: var(--radius-pill); background: var(--surface); border: 3px solid var(--line-strong); display: flex; align-items: center; justify-content: center; flex: none; }
+  .dot :global(svg) { display: none; }
+  .bar { flex: 1; height: 3px; background: var(--line); border-radius: 3px; }
+  .step.done .dot { background: var(--kaki-strong); border: 0; }
+  .step.done .dot :global(svg) { display: block; }
+  .step.done .bar { background: var(--kaki-strong); }
+  .step.next .dot { border-color: var(--kaki-strong); }
+  .step-label { font-size: 13px; color: var(--muted); }
+  .step.next .step-label { color: var(--kaki-text); font-weight: 700; }
+  .step-date { font-weight: 700; overflow-wrap: anywhere; }
+  .step-date.muted { font-weight: 500; }
+  .step.done :global(.cal) { display: none; }
+  .note { margin: 16px 0 0; }
+  @media (max-width: 760px) {
+    .timeline-card { padding: 20px; }
+    .timeline { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .step { display: grid; grid-template-columns: 24px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 12px; padding-bottom: 14px; position: relative; }
+    .track { grid-row: 1 / span 3; flex-direction: column; align-self: stretch; }
+    .bar { width: 3px; height: auto; flex: 1; position: absolute; left: 10.5px; top: 28px; bottom: 0; }
+    .step-label, .step-date, .step :global(.cal) { grid-column: 2; }
+  }
+  /* 印刷では線を省き、3列の表のように詰める（案件詳細を A4 1枚に収める） */
+  @media print {
+    .timeline-card { padding: 0; border: 0; margin-top: 16px; }
+    h2 { margin-bottom: 6px; }
+    .timeline { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 16px; }
+    .step { display: block; padding: 0; }
+    .track { display: none; }
+    .step-label { font-size: 11px; }
+    .step-date { font-size: 12px; }
+    .note { margin-top: 6px; }
+  }
+</style>

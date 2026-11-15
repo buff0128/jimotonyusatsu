@@ -1,0 +1,3 @@
+# ステージング：静的ファイルも検索エンジンに載せない（本番公開時に外す）
+/*
+  X-Robots-Tag: noindex, nofollow

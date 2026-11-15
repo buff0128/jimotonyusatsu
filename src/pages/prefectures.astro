@@ -1,0 +1,21 @@
+---
+import PrefGrid from '../components/PrefGrid.astro';
+import Base from '../layouts/Base.astro';
+import { listPrefsWithCounts } from '../lib/db';
+
+const prefs = await listPrefsWithCounts();
+---
+
+<Base
+  title="地域から入札情報を探す"
+  description="全国47都道府県の官公庁・自治体の入札の仕事を、都道府県・市区町村ごとに探せます。"
+  breadcrumbs={[{ label: '地域から探す' }]}
+>
+  <h1 class="page-title">地域から探す</h1>
+  <p class="page-lead">都道府県を選ぶと、市区町村ごとの入札が見られます（数字は掲載している仕事の数）。</p>
+  <div class="grid-wrap"><PrefGrid prefs={prefs} /></div>
+</Base>
+
+<style>
+  .grid-wrap { margin-top: 24px; }
+</style>

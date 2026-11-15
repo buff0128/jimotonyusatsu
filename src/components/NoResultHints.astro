@@ -1,0 +1,116 @@
+---
+// 一覧・検索が0件のときの「次の一手」（CaseBrowser が出す）
+//   キーワードを1語ずつ外した検索 ／ 絞り込みを外した一覧 ／ 同じ都道府県（なければ全国）の業種 ／ 都道府県内で仕事の多い市町村
+// 件数は同期のときに計算した case_counts を読むだけ（0件のときだけ読む）
+import GyoshuIcon from './GyoshuIcon.astro';
+import { countByTag, listCitiesWithCounts } from '../lib/db';
+import { GYOSHU } from '../lib/gyoshu';
+
+export type EmptyHints = {
+  /** 検索のキーワード（空白で分けた語） */
+  terms?: string[];
+  pref?: { lg_code: string; slug: string; name: string } | null;
+};
+
+type Props = EmptyHints & { basePath: string; params: URLSearchParams };
+
+const { terms = [], pref, basePath, params } = Astro.props;
+const TAG_LIMIT = 8;
+const CITY_LIMIT = 8;
+/** 外すと「絞り込みを外す」になる条件（キーワード・都道府県・種別は残す） */
+const FILTER_KEYS = ['label', 'tag', 'open', 'sort', 'city', 'page'];
+
+const hrefWith = (path: string, next: URLSearchParams) => (next.size > 0 ? `${path}?${next}` : path);
+
+// キーワードを1語ずつ外す（残りの条件が何も無くなるときは出さない）
+const keywordLinks =
+  terms.length === 0
+    ? []
+    : terms
+        .map((term) => {
+          const rest = terms.filter((t) => t !== term);
+          const next = new URLSearchParams([...params].filter(([key]) => key !== 'q' && key !== 'page'));
+          if (rest.length > 0) next.set('q', rest.join(' '));
+          return { term, rest, href: hrefWith(basePath, next), empty: next.size === 0 };
+        })
+        .filter((l) => !l.empty);
+
+const unfiltered = new URLSearchParams([...params].filter(([key]) => !FILTER_KEYS.includes(key)));
+const hasFilters = [...params.keys()].some((key) => FILTER_KEYS.includes(key) && key !== 'page');
+
+const [tagCounts, cities] = await Promise.all([countByTag(pref?.lg_code), pref ? listCitiesWithCounts(pref.lg_code) : Promise.resolve([])]);
+const tags = GYOSHU.filter((g) => (tagCounts.get(g.slug) ?? 0) > 0)
+  .sort((a, b) => (tagCounts.get(b.slug) ?? 0) - (tagCounts.get(a.slug) ?? 0))
+  .slice(0, TAG_LIMIT);
+const topCities = [...cities].sort((a, b) => b.case_count - a.case_count).slice(0, CITY_LIMIT);
+const tagHref = (slug: string) => (pref ? `/${pref.slug}/gyoshu/${slug}` : `/gyoshu/${slug}`);
+---
+
+<section class="hints" aria-label="ほかの探し方">
+  {
+    (keywordLinks.length > 0 || hasFilters) && (
+      <div class="hint">
+        <h2 class="hint-title">条件をゆるめて探す</h2>
+        <ul class="pill-row">
+          {keywordLinks.map((l) => (
+            <li>
+              <a class="pill-link" href={l.href}>
+                {l.rest.length > 0 ? `「${l.rest.join(' ')}」で探す` : `「${l.term}」を外して探す`}
+              </a>
+            </li>
+          ))}
+          {hasFilters && (
+            <li>
+              <a class="pill-link" href={hrefWith(basePath, unfiltered)}>
+                絞り込みを外す
+              </a>
+            </li>
+          )}
+        </ul>
+      </div>
+    )
+  }
+  {
+    tags.length > 0 && (
+      <div class="hint">
+        <h2 class="hint-title">{pref ? `${pref.name}の仕事を業種から探す` : '業種から探す'}</h2>
+        <ul class="pill-row">
+          {tags.map((g) => (
+            <li>
+              <a class="pill-link" href={tagHref(g.slug)}>
+                <GyoshuIcon slug={g.slug} />
+                {g.label} <span class="n">{tagCounts.get(g.slug)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+  {
+    pref && topCities.length > 0 && (
+      <div class="hint">
+        <h2 class="hint-title">{pref.name}で仕事の多い市町村</h2>
+        <ul class="pill-row">
+          {topCities.map((c) => (
+            <li>
+              <a class="pill-soft" href={`/${pref.slug}/${c.slug}`}>
+                {c.name} <span class="muted">{c.case_count}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+</section>
+
+<style>
+  .hints { display: flex; flex-direction: column; gap: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 20px 22px; }
+  .hint-title { font-size: 16px; margin: 0 0 10px; }
+  .hints :global(.pill-link), .hints :global(.pill-soft) { min-height: var(--tap); display: inline-flex; align-items: center; gap: 4px; }
+  .hints :global(.gyoshu-icon) { color: var(--kaki-text); flex: none; }
+  @media (max-width: 600px) {
+    .hints { padding: 16px; }
+  }
+</style>

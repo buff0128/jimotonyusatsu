@@ -1,0 +1,30 @@
+---
+export type Crumb = { label: string; href?: string };
+
+type Props = { items: Crumb[] };
+
+const { items } = Astro.props;
+const all: Crumb[] = [{ label: 'じもと入札', href: '/' }, ...items];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: all.map((item, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: item.label,
+    ...(item.href && { item: new URL(item.href, Astro.site ?? Astro.url).href }),
+  })),
+};
+---
+
+<nav class="breadcrumbs" aria-label="パンくずリスト">
+  <ol>
+    {
+      all.map((item) => (
+        <li>{item.href ? <a href={item.href}>{item.label}</a> : <span aria-current="page">{item.label}</span>}</li>
+      ))
+    }
+  </ol>
+</nav>
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

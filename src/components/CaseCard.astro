@@ -1,0 +1,102 @@
+---
+// 案件カード（docs/design/DESIGN.md「案件カード」「締切の箱」）
+//   1行目：地名｜種別・業種　2行目：件名　3行目：発注機関・公告日　4行目：参加しやすさのラベル
+//   右側：締切の箱と☆ボタン。締切の箱の中身と「新着」のピルはブラウザで決める（src/scripts/countdown.ts）
+import type { CaseSummary } from '../lib/db';
+import { categoryLabel } from '../lib/categories';
+import { SOON_DAYS, leftText, nextDeadline, shortDate, type DeadlineCandidate } from '../lib/deadlines';
+import { gyoshuLabel } from '../lib/gyoshu';
+import FavoriteButton from './FavoriteButton.astro';
+import GyoshuIcon from './GyoshuIcon.astro';
+import LabelChips from './LabelChips.astro';
+
+type Props = { item: CaseSummary; headingLevel?: 'h2' | 'h3' };
+
+const { item: c } = Astro.props;
+
+const place = c.city_name ?? c.pref_name ?? '全国';
+const firstTag = c.tags?.split(',')[0];
+const kind = [c.category ? categoryLabel(c.category) : null, firstTag ? gyoshuLabel(firstTag) : null].filter(Boolean).join('・') || '種別なし';
+const title = c.ai_project_name ?? c.project_name;
+
+// 締切の候補：参加申請（AI）と入札書の提出（API、なければ AI）
+const tender = c.tender_submission_deadline ?? c.ai_tender_deadline;
+const candidates: DeadlineCandidate[] = [
+  ...(c.ai_application_deadline ? [['参加申請', c.ai_application_deadline] as DeadlineCandidate] : []),
+  ...(tender ? [['入札書の提出', tender] as DeadlineCandidate] : []),
+];
+const next = nextDeadline(candidates, Date.now());
+const issue = c.cft_issue_date ? shortDate(c.cft_issue_date) : null;
+---
+
+<article class:list={['case-card', { 'is-closed': next.state === 'closed' }]} data-case-card>
+  <div class="body">
+    <div class="line1">
+      <span class="place">{place}</span><span class="sep" aria-hidden="true">|</span><span class="kind">{firstTag && <GyoshuIcon slug={firstTag} size={15} />}{kind}</span>
+      {c.cft_issue_date && <span class="new-pill" data-new-issue={c.cft_issue_date} hidden>新着</span>}
+    </div>
+    <a class="title" href={`/cases/${c.id}`}>{title}</a>
+    {c.ai_project_name && <span class="ai-mark" title="官公需情報ポータルサイトの件名が壊れていたため、AIが公告から件名を補正しました">AI</span>}
+    <div class="org">{[c.organization_name, issue && `公告 ${issue}`].filter(Boolean).join('・')}</div>
+    {c.labels && <div class="labels"><LabelChips slugs={c.labels.split(',')} /></div>}
+  </div>
+  <div class="side">
+    <div
+      class:list={['deadline-box', { soon: next.state === 'open' && next.days <= SOON_DAYS }]}
+      data-deadline-box
+      data-deadlines={JSON.stringify(candidates)}
+    >
+      {
+        next.state === 'open' ? (
+          <>
+            <div class="dl-label" data-dl-label>{next.label}</div>
+            <div class="dl-left" data-dl-left>{leftText(next.days)}</div>
+            <div class="dl-date" data-dl-date>{shortDate(next.value)}</div>
+          </>
+        ) : next.state === 'closed' ? (
+          <>
+            <div class="dl-label" data-dl-label>締切</div>
+            <div class="dl-left" data-dl-left>受付終了</div>
+            <div class="dl-date" data-dl-date />
+          </>
+        ) : (
+          <>
+            <div class="dl-label">締切</div>
+            <div class="dl-unknown">公告で確認</div>
+          </>
+        )
+      }
+    </div>
+    <FavoriteButton kind="case" id={c.id} variant="icon" />
+  </div>
+</article>
+
+<style>
+  .case-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 20px 22px; display: flex; gap: 16px; align-items: flex-start; }
+  .case-card.is-closed { opacity: 0.55; }
+  .body { flex: 1; min-width: 0; }
+  .line1 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; line-height: 1.6; }
+  .place { font-weight: 700; color: var(--kaki-text); }
+  .sep { color: var(--line-strong); }
+  .kind { color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+  .kind :global(.gyoshu-icon) { flex: none; }
+  .title { display: inline; font-size: 17px; font-weight: 700; color: var(--ink); text-decoration: none; line-height: 1.5; overflow-wrap: anywhere; }
+  .title:hover { color: var(--link-hover); text-decoration: underline; }
+  .body > .title { display: inline-block; margin: 4px 0; }
+  .ai-mark { margin-left: 6px; }
+  .org { font-size: 13px; color: var(--muted); }
+  .labels { margin-top: 10px; }
+  .side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .deadline-box { background: var(--surface-soft); color: var(--ink-sub); border: 1px solid var(--line); border-radius: var(--radius-control); padding: 6px 12px; text-align: right; min-width: 92px; }
+  .deadline-box.soon { background: var(--kaki-soft); color: var(--kaki-text); border-color: var(--kaki-soft); }
+  .dl-label { font-size: 11px; font-weight: 700; }
+  .dl-left { font-size: 18px; font-weight: 900; line-height: 1.2; }
+  .dl-date { font-size: 11px; }
+  .dl-unknown { font-size: 14px; font-weight: 700; line-height: 1.4; }
+  @media (max-width: 600px) {
+    .case-card { padding: 16px; gap: 12px; flex-direction: column; }
+    .side { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+    .deadline-box { text-align: left; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .dl-left { font-size: 16px; }
+  }
+</style>

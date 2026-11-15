@@ -1,0 +1,10 @@
+---
+// 都道府県のページ（/ibaraki）。構成は市区町村のページと同じ（src/components/AreaDashboard.astro）
+import AreaDashboard from '../../components/AreaDashboard.astro';
+import { getPrefBySlug } from '../../lib/db';
+
+const pref = await getPrefBySlug(Astro.params.pref ?? '');
+if (!pref) return Astro.rewrite('/404');
+---
+
+<AreaDashboard pref={pref} city={null} />

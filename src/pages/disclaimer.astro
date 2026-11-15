@@ -1,0 +1,15 @@
+---
+// 本文は docs/content/disclaimer.md（path: /disclaimer）
+import MarkdownPage from '../layouts/MarkdownPage.astro';
+
+export const prerender = true;
+---
+
+<MarkdownPage path="/disclaimer">
+  <h2>地名のローマ字表記について</h2>
+  <p>
+    URLに使っている市区町村名のローマ字は、<a href="https://github.com/geolonia/japanese-addresses" rel="noopener"
+      >Geolonia 住所データ</a
+    >（<a href="https://creativecommons.org/licenses/by/4.0/deed.ja" rel="noopener">CC BY 4.0</a>。日本郵便「郵便番号データ（ローマ字）」をもとに作成）を加工して作成しています。
+  </p>
+</MarkdownPage>
