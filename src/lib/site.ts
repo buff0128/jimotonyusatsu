@@ -15,7 +15,13 @@ export const STAGING_HOST = 'jimotonyusatsu.ishikawa-onore.workers.dev';
  * 公開までは全ページ noindex。公開するときはこの1行を false にしてデプロイするだけ
  * （<meta name="robots"> は Base レイアウト、X-Robots-Tag は src/middleware.ts がこの値を見る）
  */
-export const STAGING_NOINDEX = true;
+export const STAGING_NOINDEX = false;
+
+/**
+ * AdSense のサイト運営者 ID（ca-pub-から始まる16桁）。AdSense の管理画面で確認して入れる。
+ * 入れると全ページの <head> に AdSense のコード（審査用の所有権確認も兼ねる）が入り、/ads.txt が返るようになる。空のあいだはどちらも出さない
+ */
+export const ADSENSE_CLIENT: string = '';
 
 /** docs/content/*.md の {{キー}} を置き換える値（astro.config.mjs の remark プラグインが使う） */
 export const PLACEHOLDERS = {

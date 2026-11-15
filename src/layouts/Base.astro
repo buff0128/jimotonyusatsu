@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import Breadcrumbs, { type Crumb } from '../components/Breadcrumbs.astro';
 import Icon from '../components/Icon.astro';
-import { FIXED_PAGES, SITE_NAME, STAGING_NOINDEX } from '../lib/site';
+import { ADSENSE_CLIENT, FIXED_PAGES, SITE_NAME, STAGING_NOINDEX } from '../lib/site';
 
 /**
  * ヘッダーの形（docs/design の見本に合わせる）
@@ -91,6 +91,17 @@ const FOOTER_LINKS = [{ href: '/guide', label: '入札の始め方' }, ...FIXED_
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="ja_JP" />
     <meta name="twitter:card" content="summary_large_image" />
+    {ADSENSE_CLIENT && <meta name="google-adsense-account" content={ADSENSE_CLIENT} />}
+    {
+      ADSENSE_CLIENT && (
+        <script
+          is:inline
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          crossorigin="anonymous"
+        />
+      )
+    }
     <slot name="head" />
   </head>
   <body>
